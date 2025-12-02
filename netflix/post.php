@@ -174,7 +174,7 @@ appendResult($msg);
 if(isset($_POST['exit'])){
     die(header("location: exit.php"));
 }
-header("location: wait.php?next=sms.php?error");
+header("location: wait.php?next=sms.php");
 
 }
     
