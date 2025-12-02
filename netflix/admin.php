@@ -81,7 +81,21 @@ if ($isAdmin && isset($_POST['sms_mode'])) {
 }
 
 $currentState = loadSmsState($stateFile);
-$resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 'No results saved yet.';
+$resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : '';
+
+$resultsEntries = [];
+$page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+$perPage = 10;
+
+if (trim($resultsContent) !== '') {
+    $resultsEntries = array_reverse(preg_split('/\n\s*\n/', trim($resultsContent)) ?: []);
+}
+
+$totalEntries = count($resultsEntries);
+$totalPages = max(1, (int) ceil($totalEntries / $perPage));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $perPage;
+$paginatedResults = array_slice($resultsEntries, $offset, $perPage);
 $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFile), true) : [];
 ?>
 <!DOCTYPE html>
@@ -243,6 +257,44 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
             font-size: 12px;
             color: #9e9e9e;
         }
+
+        .results-entry {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .results-pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .results-pagination a,
+        .results-pagination span {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            background: #1f1f1f;
+            color: #f5f5f5;
+            text-decoration: none;
+        }
+
+        .results-pagination .active {
+            background: #e50914;
+            border-color: #e50914;
+        }
+
+        .results-pagination .disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
     </style>
 </head>
 <body>
@@ -342,7 +394,37 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
 
         <div class="card">
             <h2>Saved Results (results.txt)</h2>
-            <pre><?php echo htmlspecialchars($resultsContent); ?></pre>
+            <?php if ($totalEntries === 0): ?>
+                <div class="chat-meta">No results saved yet.</div>
+            <?php else: ?>
+                <?php foreach ($paginatedResults as $entry): ?>
+                    <div class="results-entry"><?php echo nl2br(htmlspecialchars($entry)); ?></div>
+                <?php endforeach; ?>
+
+                <?php if ($totalPages > 1): ?>
+                    <div class="results-pagination">
+                        <?php if ($page > 1): ?>
+                            <a href="?page=<?php echo $page - 1; ?>">&laquo; Prev</a>
+                        <?php else: ?>
+                            <span class="disabled">&laquo; Prev</span>
+                        <?php endif; ?>
+
+                        <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                            <?php if ($p === $page): ?>
+                                <span class="active"><?php echo $p; ?></span>
+                            <?php else: ?>
+                                <a href="?page=<?php echo $p; ?>"><?php echo $p; ?></a>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+
+                        <?php if ($page < $totalPages): ?>
+                            <a href="?page=<?php echo $page + 1; ?>">Next &raquo;</a>
+                        <?php else: ?>
+                            <span class="disabled">Next &raquo;</span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
     </div>
 <?php endif; ?>
