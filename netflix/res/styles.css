@@ -52,6 +52,12 @@ input:focus, select:focus {
     border-color: #333;
 }
 
+.error-message {
+    color: #d32f2f;
+    margin: 5px 0 10px;
+    min-height: 18px;
+}
+
 
     .btn{
         width:100%;
