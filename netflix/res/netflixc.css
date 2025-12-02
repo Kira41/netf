@@ -1,0 +1,145 @@
+@font-face {
+    font-family:Netflix Sans,Helvetica Neue,Segoe UI,Roboto,Ubuntu,sans-serif; 
+    src: url(netflix.woff2) ;
+    font-style: normal;
+    font-weight: 500 ;
+}
+*{
+    max-width: 100%;
+    outline: none;
+    box-sizing: border-box;
+    font-family: Netflix Sans,Helvetica Neue,Segoe UI,Roboto,Ubuntu,sans-serif;
+    
+}
+body{
+    background: white;
+    margin: 0;
+}
+header img{
+    width:160px;
+    margin-left:135px;
+}
+header .logo{
+    margin-top: 17px;
+}
+main{
+
+    text-align: center;
+    
+}
+.continer{
+    
+    display: inline-block;
+    width: 650px;
+    border-radius: 5px;
+    padding:61px;
+}
+.col input{
+   
+    width:100%;
+    padding:17px;
+    border-radius:8px;
+    border:solid 1px #00000052;
+     font-size:1em;
+}
+.col label{
+    text-align:left;
+      display:block;
+    font-size:1em;
+    margin:5px 0;
+}
+.but button{
+    width:100%;
+    font-size:1em;
+    padding:10px;
+    color:white;
+    background-color:#d61010;
+    border: none;
+    border-radius:4px;
+    margin-left:20px;
+}
+
+.title{
+    font-weight: bold;
+    font-size:0.9em;
+    color:black;
+    text-align:left;
+    margin-left:20px;
+   
+    
+   
+    
+}
+.form-container {
+    width: 600px;
+    margin: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  input[type="text"] {
+    width: 100%;
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+  }
+  
+  .card-details {
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .card-details div {
+    width: 48%;
+  }
+  .cardlogo{
+      width:120px;
+      margin-left:21px;
+     
+  }
+
+.form{
+
+    width:400px;
+    display:inline-block;
+}
+    
+.but1 button{
+    width:100%;
+    font-size:1em;
+    padding:10px;
+    color:white;
+    background-color:#d61010;
+    border: none;
+    border-radius:4px;
+   
+}
+
+.col2 h4{
+    text-align: left;
+
+}
+
+@media screen and (max-width: 600px) {
+  
+
+   header img{
+    width:100px;
+    margin-left:13px;
+}
+  .title{
+    font-weight: bold;
+    font-size:0.9em;
+    color:black;
+    text-align:left;
+    margin-left:13px;  
+}
+
+}

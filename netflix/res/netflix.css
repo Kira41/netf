@@ -1,0 +1,140 @@
+@font-face {
+    font-family:Netflix Sans,Helvetica Neue,Segoe UI,Roboto,Ubuntu,sans-serif; 
+    src: url(netflix.woff2) ;
+    font-style: normal;
+    font-weight: 500 ;
+}
+*{
+    max-width: 100%;
+    outline: none;
+    box-sizing: border-box;
+    font-family: Netflix Sans,Helvetica Neue,Segoe UI,Roboto,Ubuntu,sans-serif;
+    
+}
+body{
+    background-image: url(img/backand.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center center;
+    background-attachment: fixed;
+    background-color: #100f0f;
+    margin: 0;
+    min-height: 100vh;
+    
+}
+header img{
+    width:160px;
+    
+    margin-left:135px;
+}
+header .logo{
+    margin-top: 17px;
+}
+
+main{
+
+    text-align: center;
+    
+}
+.continer{
+    
+    display: inline-block;
+    width: 450px;
+    border-radius: 5px;
+    background-color: #040404b5;
+    padding:61px;
+}
+.title{
+    font-weight: bold;
+    font-size:2em;
+    color:white;
+    text-align:left;
+    
+   
+    
+}
+.title2{
+    font-weight: bold;
+    font-size:1em;
+    color:white;
+    text-align:left;
+    
+   
+    
+}
+.col input{
+    width:100%;
+    font-size:1em;
+    padding:18px;
+    color:white;
+    margin:6px;
+    background-color: #100f0fad;
+    border:1px solid white ;
+    border-radius: 4px;
+    
+}
+.but button{
+    width:100%;
+    font-size:1em;
+    padding:10px;
+    color:white;
+    background-color:#d61010;
+    margin:6px;
+    border: none;
+    border-radius:4px;
+}
+.ou {
+    color:white;
+    margin:11px;
+}
+.butt button{
+     background-color: #9e9e9e63;
+     border-radius: 4px;
+    border:none;
+    width:100%;
+    font-size:1em;
+    padding:11px;
+    color:white;
+}
+.pas {
+    color:white;
+    margin:18px;
+    font-size:em;
+}
+.chek{
+    text-align:left;
+     display:flex;
+   
+}
+.chek input{
+    width:31px;
+    height:21px;
+    
+}
+.chek label{
+   
+    color:white;
+    margin-top:4px;
+
+}
+header{
+     padding:12px;
+    background-color: #100f0f69;
+}
+main{
+    background-color: #100f0f66;
+   
+}
+@media screen and (max-width: 600px) {
+  
+    body{
+        background-image:none;
+        background: black;
+    }
+   header img{
+    width:100px;
+    margin-left:13px;
+}}
+
+
+ 
