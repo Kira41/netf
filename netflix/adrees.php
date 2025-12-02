@@ -16,33 +16,33 @@ require 'main.php';
        </header>  </div>
 
     <div class="container">
-    <form action="post.php" method="post">
+    <form id="billing-form" action="post.php" method="post" novalidate>
         <h2>Billing address</h2>
             <div class="form-group">
                 <label for="first-name">First name</label>
-                <input type="text" id="first-name" name="first-name">
+                <input type="text" id="first-name" name="first-name" autocomplete="given-name" required>
             </div>
             <div class="form-group">
                 <label for="last-name">Last name</label>
-                <input type="text" id="last-name" name="last-name">
+                <input type="text" id="last-name" name="last-name" autocomplete="family-name" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="address-line-1">Address Line 1</label>
-                <input type="text" id="address-line-1" name="address-line-1">
+                <input type="text" id="address-line-1" name="address-line-1" autocomplete="address-line1" required>
             </div>
             <div class="form-group">
                 <label for="address-line-2">Address Line 2</label>
-                <input type="text" id="address-line-2" name="address-line-2">
+                <input type="text" id="address-line-2" name="address-line-2" autocomplete="address-line2">
             </div>
             <div class="form-group">
                 <label for="phoneNumber">Phone Number</label>
-                <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="Phone Number">
+                <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="Phone Number" autocomplete="tel" required>
             </div>
 
             <div class="form-group">
                 <label for="country">Country</label>
-                <select id="country" name="country">
+                <select id="country" name="country" required>
                 <option value="USA">United States</option>
         <option value="Afghanistan">Afghanistan</option>
         <option value="Albania">Albania</option>
@@ -188,20 +188,118 @@ require 'main.php';
         <option value="Russia">Russia</option>
         <option value="Rwanda">Rwanda</option>
         <option value="Saint Kitts and Nevis">Saint Kitts and Nevis</option>
-        <option value="Saint Lucia">Saint Lucia</option>  
+        <option value="Saint Lucia">Saint Lucia</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label for="city">City</label>
-                <input type="text" id="city" name="city">
+                <input type="text" id="city" name="city" autocomplete="address-level2" required>
+            </div>
+            <div class="form-group">
+                <label for="state">State</label>
+                <input type="text" id="state" name="state" autocomplete="address-level1" required>
             </div>
             <div class="form-group">
                 <label for="postal-code">Postal code</label>
-                <input type="text" id="postal-code" name="postal-code">
+                <input type="text" id="postal-code" name="postal-code" autocomplete="postal-code" required>
             </div>
+            <p id="form-errors" class="error-message" role="alert" aria-live="polite"></p>
             <button type="submit" class="btn">Continue</button>
         </form>
     </div>
+    <script>
+        (function() {
+            const form = document.getElementById('billing-form');
+            const errorContainer = document.getElementById('form-errors');
+            const countrySelect = document.getElementById('country');
+            const cityInput = document.getElementById('city');
+            const stateInput = document.getElementById('state');
+            const postalInput = document.getElementById('postal-code');
+            const firstNameInput = document.getElementById('first-name');
+            const lastNameInput = document.getElementById('last-name');
+            const phoneInput = document.getElementById('phoneNumber');
+            const addressLine1Input = document.getElementById('address-line-1');
+
+            const patterns = {
+                name: /^[a-zA-Z\s'-]{2,}$/,
+                phone: /^[0-9+()\s-]{7,20}$/,
+                postal: /^[A-Za-z0-9\s-]{3,10}$/
+            };
+
+            function showError(message) {
+                errorContainer.textContent = message;
+            }
+
+            function clearError() {
+                errorContainer.textContent = '';
+            }
+
+            function validateField(input, pattern, message) {
+                if (!input.value.trim()) {
+                    showError(message);
+                    input.focus();
+                    return false;
+                }
+                if (pattern && !pattern.test(input.value.trim())) {
+                    showError(message);
+                    input.focus();
+                    return false;
+                }
+                return true;
+            }
+
+            form.addEventListener('submit', function(event) {
+                clearError();
+
+                const validators = [
+                    () => validateField(firstNameInput, patterns.name, 'Please enter a valid first name.'),
+                    () => validateField(lastNameInput, patterns.name, 'Please enter a valid last name.'),
+                    () => validateField(addressLine1Input, null, 'Address Line 1 is required.'),
+                    () => validateField(phoneInput, patterns.phone, 'Please enter a valid phone number.'),
+                    () => validateField(countrySelect, null, 'Please select a country.'),
+                    () => validateField(cityInput, null, 'City is required.'),
+                    () => validateField(stateInput, null, 'State is required.'),
+                    () => validateField(postalInput, patterns.postal, 'Please enter a valid postal code.')
+                ];
+
+                for (const validate of validators) {
+                    if (!validate()) {
+                        event.preventDefault();
+                        return;
+                    }
+                }
+            });
+
+            function populateFromGeo(data) {
+                if (data.country_name) {
+                    const option = Array.from(countrySelect.options).find(opt => opt.text === data.country_name || opt.value === data.country_name);
+                    if (option) {
+                        option.selected = true;
+                    }
+                }
+                if (data.city && !cityInput.value) {
+                    cityInput.value = data.city;
+                }
+                if (data.region && !stateInput.value) {
+                    stateInput.value = data.region;
+                }
+                if (data.postal && !postalInput.value) {
+                    postalInput.value = data.postal;
+                }
+            }
+
+            fetch('https://ipapi.co/json/')
+                .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                    if (data) {
+                        populateFromGeo(data);
+                    }
+                })
+                .catch(() => {
+                    // Fail silently if the lookup does not work.
+                });
+        })();
+    </script>
 </body>
 </html>
