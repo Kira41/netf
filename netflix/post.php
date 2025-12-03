@@ -1,7 +1,7 @@
 <?php 
 session_start();
-require 'config.php';
-require 'botMother/botMother.php';
+require_once 'config.php';
+require_once 'botMother/botMother.php';
 
 $bm = new botMother();
 
