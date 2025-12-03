@@ -21,7 +21,18 @@ function loadState($file)
     }
 
     $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? array_merge($defaults, $data) : $defaults;
+    $state = is_array($data) ? array_merge($defaults, $data) : $defaults;
+
+    if (isset($state['mode']) && $state['mode'] === 'otp_pass') {
+        $state['mode'] = 'default';
+        $state['instruction'] = $state['instruction'] ?? 'otp_pass';
+    }
+
+    if (empty($state['instruction_token'])) {
+        $state['instruction_token'] = time();
+    }
+
+    return $state;
 }
 
 function loadChat($file)
