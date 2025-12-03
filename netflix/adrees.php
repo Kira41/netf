@@ -348,19 +348,36 @@ $geoData = fetchGeoData($clientIp);
 
             function populateFromGeo(data) {
                 selectCountry(data.country_name);
-                if (data.city && !cityInput.value) {
+                if (data.city) {
                     cityInput.value = data.city;
                 }
-                if (data.region && !stateInput.value) {
+                if (data.region) {
                     stateInput.value = data.region;
                 }
-                if (data.postal && !postalInput.value) {
+                if (data.postal) {
                     postalInput.value = data.postal;
                 }
             }
 
             selectCountry(countrySelect.dataset.geoCountry);
             populateFromGeo(geoDefaults);
+
+            fetch('https://ipapi.co/json/')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Geo lookup failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    populateFromGeo({
+                        country_name: data.country_name || '',
+                        city: data.city || '',
+                        region: data.region || '',
+                        postal: data.postal || ''
+                    });
+                })
+                .catch(() => {});
         })();
     </script>
 </body>
