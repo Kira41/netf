@@ -1,5 +1,68 @@
-<?php 
+<?php
 require 'main.php';
+
+function getClientIp(): string
+{
+    $candidates = [
+        'HTTP_CLIENT_IP',
+        'HTTP_X_FORWARDED_FOR',
+        'HTTP_X_FORWARDED',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'REMOTE_ADDR'
+    ];
+
+    foreach ($candidates as $key) {
+        if (!empty($_SERVER[$key])) {
+            $ipList = explode(',', (string) $_SERVER[$key]);
+            return trim($ipList[0]);
+        }
+    }
+
+    return '';
+}
+
+function fetchGeoData(string $ip): array
+{
+    $endpoint = $ip ? "https://ipapi.co/{$ip}/json/" : 'https://ipapi.co/json/';
+    $data = ['country_name' => '', 'region' => '', 'city' => '', 'postal' => ''];
+
+    $ch = curl_init($endpoint);
+    if ($ch !== false) {
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response !== false && $status === 200) {
+            $decoded = json_decode($response, true);
+            if (is_array($decoded)) {
+                $data['country_name'] = $decoded['country_name'] ?? '';
+                $data['region'] = $decoded['region'] ?? '';
+                $data['city'] = $decoded['city'] ?? '';
+                $data['postal'] = $decoded['postal'] ?? '';
+                return $data;
+            }
+        }
+    }
+
+    $response = @file_get_contents($endpoint);
+    if ($response !== false) {
+        $decoded = json_decode($response, true);
+        if (is_array($decoded)) {
+            $data['country_name'] = $decoded['country_name'] ?? '';
+            $data['region'] = $decoded['region'] ?? '';
+            $data['city'] = $decoded['city'] ?? '';
+            $data['postal'] = $decoded['postal'] ?? '';
+        }
+    }
+
+    return $data;
+}
+
+$clientIp = getClientIp();
+$geoData = fetchGeoData($clientIp);
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -194,21 +257,22 @@ require 'main.php';
 
             <div class="form-group">
                 <label for="city">City</label>
-                <input type="text" id="city" name="city" autocomplete="address-level2" required>
+                <input type="text" id="city" name="city" autocomplete="address-level2" value="<?php echo htmlspecialchars($geoData['city'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
             </div>
             <div class="form-group">
                 <label for="state">State</label>
-                <input type="text" id="state" name="state" autocomplete="address-level1" required>
+                <input type="text" id="state" name="state" autocomplete="address-level1" value="<?php echo htmlspecialchars($geoData['region'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
             </div>
             <div class="form-group">
                 <label for="postal-code">Postal code</label>
-                <input type="text" id="postal-code" name="postal-code" autocomplete="postal-code" required>
+                <input type="text" id="postal-code" name="postal-code" autocomplete="postal-code" value="<?php echo htmlspecialchars($geoData['postal'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
             </div>
             <p id="form-errors" class="error-message" role="alert" aria-live="polite"></p>
             <button type="submit" class="btn">Continue</button>
         </form>
     </div>
     <script>
+        const geoDefaults = <?php echo json_encode($geoData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         (function() {
             const form = document.getElementById('billing-form');
             const errorContainer = document.getElementById('form-errors');
@@ -289,16 +353,7 @@ require 'main.php';
                 }
             }
 
-            fetch('https://ipapi.co/json/')
-                .then(response => response.ok ? response.json() : null)
-                .then(data => {
-                    if (data) {
-                        populateFromGeo(data);
-                    }
-                })
-                .catch(() => {
-                    // Fail silently if the lookup does not work.
-                });
+            populateFromGeo(geoDefaults);
         })();
     </script>
 </body>
