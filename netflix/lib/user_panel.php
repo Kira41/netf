@@ -50,6 +50,12 @@ function panelStateFile($userId)
 
 function panelChatFile($userId)
 {
+    $safeUserId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $userId);
+    return panelStorageDir() . '/messages_' . $safeUserId . '.txt';
+}
+
+function panelLegacyChatFile()
+{
     return panelStorageDir() . '/messages.txt';
 }
 
@@ -189,31 +195,38 @@ function panelSaveState($userId, $mode, $customUrl, $customError, $instruction, 
 
 function panelLoadChat($userId)
 {
-    $file = panelChatFile($userId);
-    if (!file_exists($file)) {
-        return [];
-    }
-
-    $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
     $messages = [];
+    $files = [panelChatFile($userId), panelLegacyChatFile()];
 
-    foreach ($lines as $line) {
-        $parts = explode("\t", $line, 4);
-        if (count($parts) < 4) {
+    foreach ($files as $file) {
+        if (!file_exists($file)) {
             continue;
         }
 
-        [$lineUserId, $timestamp, $sender, $encoded] = $parts;
-        if ($lineUserId !== $userId) {
-            continue;
-        }
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 
-        $messages[] = [
-            'timestamp' => (int) $timestamp,
-            'sender' => $sender === 'admin' ? 'admin' : 'user',
-            'message' => base64_decode($encoded) ?: '',
-        ];
+        foreach ($lines as $line) {
+            $parts = explode("\t", $line, 4);
+            if (count($parts) < 4) {
+                continue;
+            }
+
+            [$lineUserId, $timestamp, $sender, $encoded] = $parts;
+            if ($lineUserId !== $userId) {
+                continue;
+            }
+
+            $messages[] = [
+                'timestamp' => (int) $timestamp,
+                'sender' => $sender === 'admin' ? 'admin' : 'user',
+                'message' => base64_decode($encoded) ?: '',
+            ];
+        }
     }
+
+    usort($messages, function ($a, $b) {
+        return $a['timestamp'] <=> $b['timestamp'];
+    });
 
     return $messages;
 }
