@@ -13,9 +13,9 @@ $action = $_GET['action'] ?? 'fetch';
 $isAdmin = !empty($_SESSION['is_admin']);
 $currentUserId = panelCurrentUserId();
 $requestedUserId = sanitizeUserId($_GET['user_id'] ?? $_POST['user_id'] ?? '');
-$targetUserId = $isAdmin ? ($requestedUserId ?: '') : $currentUserId;
+$targetUserId = $requestedUserId !== '' ? $requestedUserId : $currentUserId;
 
-if ($isAdmin && $targetUserId === '') {
+if ($isAdmin && $requestedUserId === '' && $currentUserId === '') {
     echo json_encode([
         'chat_enabled' => false,
         'messages' => [],
