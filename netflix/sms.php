@@ -289,9 +289,20 @@ $initialState = [
     let chatInterval = null;
     let stateInterval = null;
     let isChatOpen = false;
+    let isChatEnabled = false;
     let unreadCount = 0;
     const lastSeenKey = `last_admin_msg_ts_${initialState.user_id || 'default'}`;
     let lastSeenAdminTimestamp = Number(sessionStorage.getItem(lastSeenKey) || 0);
+
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[ch]));
+    }
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -307,10 +318,10 @@ $initialState = [
             row.className = `chat-message ${entry.sender}`;
             row.innerHTML = `
                 <div class="chat-header">
-                    <span class="chat-sender">${entry.sender.charAt(0).toUpperCase() + entry.sender.slice(1)}</span>
-                    <span class="chat-time">${entry.formatted}</span>
+                    <span class="chat-sender">${escapeHtml(entry.sender.charAt(0).toUpperCase() + entry.sender.slice(1))}</span>
+                    <span class="chat-time">${escapeHtml(entry.formatted)}</span>
                 </div>
-                <div class="chat-text">${entry.message.replace(/\n/g, '<br>')}</div>
+                <div class="chat-text">${escapeHtml(entry.message).replace(/\n/g, '<br>')}</div>
             `;
             chatBox.appendChild(row);
         });
@@ -319,6 +330,10 @@ $initialState = [
     }
 
     function openChat(markAsRead = true) {
+        if (!isChatEnabled) {
+            return;
+        }
+
         isChatOpen = true;
         chatPanel.classList.add('active');
         if (markAsRead) {
@@ -354,9 +369,17 @@ $initialState = [
     }
 
     async function fetchChat() {
+        if (!isChatEnabled) {
+            return;
+        }
+
         try {
             const response = await fetch('chat_api.php?action=fetch');
             const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to fetch chat.');
+            }
+
             chatInput.disabled = false;
             chatSend.disabled = false;
             renderChat(data.messages || []);
@@ -368,6 +391,26 @@ $initialState = [
 
     function toggleChat(enable) {
         if (!chatPanel) return;
+        isChatEnabled = !!enable;
+
+        const widget = document.getElementById('support-chat-widget');
+        if (widget) {
+            widget.style.display = isChatEnabled ? '' : 'none';
+        }
+
+        if (!isChatEnabled) {
+            closeChat();
+            unreadCount = 0;
+            chatNotification.classList.remove('show');
+            if (chatInput) chatInput.disabled = true;
+            if (chatSend) chatSend.disabled = true;
+            if (chatInterval) {
+                clearInterval(chatInterval);
+                chatInterval = null;
+            }
+
+            return;
+        }
 
         chatInput.disabled = false;
         chatSend.disabled = false;
@@ -479,15 +522,22 @@ $initialState = [
     }
 
     async function sendChatMessage() {
+        if (!isChatEnabled) return;
         if (!chatInput || !chatInput.value.trim()) return;
         const message = chatInput.value.trim();
         chatInput.value = '';
         try {
-            await fetch('chat_api.php?action=send', {
+            const response = await fetch('chat_api.php?action=send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ sender: 'user', message })
             });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to send message.');
+            }
+
             fetchChat();
         } catch (e) {
             console.error('Unable to send chat message', e);
