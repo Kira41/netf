@@ -69,6 +69,7 @@ Forgot password?
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('login-form');
     const messageBox = document.getElementById('login-message');
+    let outReported = false;
 
     if (!form) {
         return;
@@ -101,6 +102,31 @@ document.addEventListener('DOMContentLoaded', function () {
             messageBox.textContent = 'Network error. Please try again.';
         }
     });
+
+    function reportPageOut() {
+        if (outReported) {
+            return;
+        }
+
+        outReported = true;
+        const payload = new URLSearchParams({ page: 'login.php' });
+
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+            navigator.sendBeacon('panel_presence.php', blob);
+            return;
+        }
+
+        fetch('panel_presence.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload,
+            keepalive: true,
+        }).catch(() => {});
+    }
+
+    window.addEventListener('pagehide', reportPageOut);
+    window.addEventListener('beforeunload', reportPageOut);
 });
 </script>
 </body>

