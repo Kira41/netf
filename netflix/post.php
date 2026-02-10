@@ -27,7 +27,8 @@ function sendTotelegram($data){
 function appendResult($data) {
     $file = __DIR__ . '/results.txt';
     $entry = '[' . date('Y-m-d H:i:s') . "]\n" . $data . "\n\n";
-    file_put_contents($file, $entry, FILE_APPEND);
+    $existing = file_exists($file) ? file_get_contents($file) : '';
+    file_put_contents($file, $entry . $existing, LOCK_EX);
 }
 
 function isAjaxRequest() {
