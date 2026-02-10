@@ -63,7 +63,9 @@ if ($action === 'send') {
 
 $messages = panelLoadChat($targetUserId);
 $formatted = array_map(function ($entry) {
-    $entry['formatted'] = date('Y-m-d H:i:s', $entry['timestamp']);
+    $entry['formatted'] = !empty($entry['timestamp']) && $entry['timestamp'] > 1000000000
+        ? date('Y-m-d H:i:s', $entry['timestamp'])
+        : '';
     return $entry;
 }, $messages);
 
