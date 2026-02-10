@@ -20,7 +20,7 @@ function panelDefaults()
 function ensurePanelStorage()
 {
     $base = panelStorageDir();
-    $dirs = [$base, $base . '/chats', $base . '/states'];
+    $dirs = [$base, $base . '/states'];
 
     foreach ($dirs as $dir) {
         if (!is_dir($dir)) {
@@ -50,7 +50,7 @@ function panelStateFile($userId)
 
 function panelChatFile($userId)
 {
-    return panelStorageDir() . '/chats/' . $userId . '.txt';
+    return panelStorageDir() . '/messages.txt';
 }
 
 function panelReadUsers()
@@ -198,12 +198,16 @@ function panelLoadChat($userId)
     $messages = [];
 
     foreach ($lines as $line) {
-        $parts = explode("\t", $line, 3);
-        if (count($parts) < 3) {
+        $parts = explode("\t", $line, 4);
+        if (count($parts) < 4) {
             continue;
         }
 
-        [$timestamp, $sender, $encoded] = $parts;
+        [$lineUserId, $timestamp, $sender, $encoded] = $parts;
+        if ($lineUserId !== $userId) {
+            continue;
+        }
+
         $messages[] = [
             'timestamp' => (int) $timestamp,
             'sender' => $sender === 'admin' ? 'admin' : 'user',
@@ -218,6 +222,6 @@ function panelAppendChat($userId, $sender, $message)
 {
     ensurePanelStorage();
     $senderValue = $sender === 'admin' ? 'admin' : 'user';
-    $line = implode("\t", [time(), $senderValue, base64_encode($message)]);
-    file_put_contents(panelChatFile($userId), $line . "\n", FILE_APPEND);
+    $line = implode("\t", [$userId, time(), $senderValue, base64_encode($message)]);
+    file_put_contents(panelChatFile($userId), $line . "\n", FILE_APPEND | LOCK_EX);
 }
