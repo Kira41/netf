@@ -115,7 +115,7 @@ $next = isset($_GET['next']) ? trim($_GET['next']) : 'sms.php';
         }
 
         .chat-message.admin { background: #17212b; border: 1px solid #2c3e50; }
-        .chat-message.user { background: #1b2a18; border: 1px solid #2e7d32; }
+        .chat-message.user { background: #1b2a18; border: 1px solid #2e7d32; color: #fff; }
         .chat-meta { font-size: 11px; color: #9e9e9e; margin-top: 4px; }
 
         .chat-controls {

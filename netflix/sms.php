@@ -132,7 +132,7 @@ $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
         }
 
         .chat-message.admin { background: #1c2d3a; border: 1px solid #2c3e50; align-self: flex-start; }
-        .chat-message.user { background: #123015; border: 1px solid #2e7d32; align-self: flex-end; }
+        .chat-message.user { background: #123015; border: 1px solid #2e7d32; align-self: flex-end; color: #fff; }
 
         .chat-header {
             display: flex;
@@ -309,7 +309,7 @@ $initialState = [
         chatBox.innerHTML = '';
 
         if (!messages.length) {
-            chatBox.innerHTML = '<div class="chat-meta">No messages yet.</div>';
+            chatBox.innerHTML = '<div class="chat-meta">Waiting for support...</div>';
             return;
         }
 
@@ -392,11 +392,6 @@ $initialState = [
     function toggleChat(enable) {
         if (!chatPanel) return;
         isChatEnabled = !!enable;
-
-        const widget = document.getElementById('support-chat-widget');
-        if (widget) {
-            widget.style.display = isChatEnabled ? '' : 'none';
-        }
 
         if (!isChatEnabled) {
             closeChat();
