@@ -282,6 +282,24 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     const sendButton = document.getElementById('send-admin-message');
     const smsForm = document.getElementById('sms-form');
     const flashMessage = document.getElementById('flash-message');
+    let adminChatPoller = null;
+
+    function setAdminChatEnabled(enabled) {
+        if (!chatInput || !sendButton) return;
+
+        chatInput.disabled = !enabled;
+        sendButton.disabled = !enabled;
+
+        if (enabled) {
+            fetchChat();
+            if (!adminChatPoller) {
+                adminChatPoller = setInterval(fetchChat, 1000);
+            }
+        } else if (adminChatPoller) {
+            clearInterval(adminChatPoller);
+            adminChatPoller = null;
+        }
+    }
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -318,7 +336,7 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
     }
 
     async function sendChatMessage() {
-        if (!chatInput || !chatInput.value.trim()) return;
+        if (!chatInput || chatInput.disabled || !chatInput.value.trim()) return;
         const message = chatInput.value.trim();
         chatInput.value = '';
 
@@ -343,10 +361,7 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
             }
         });
 
-        if (!chatInput.disabled) {
-            fetchChat();
-            setInterval(fetchChat, 1000);
-        }
+        setAdminChatEnabled(!chatInput.disabled);
     }
 
     async function updateSmsState(event) {
@@ -377,6 +392,8 @@ $chatLog = file_exists($chatLogFile) ? json_decode(file_get_contents($chatLogFil
                 if (chatCheckbox) {
                     chatCheckbox.checked = !!data.state.chat_enabled;
                 }
+
+                setAdminChatEnabled(!!data.state.chat_enabled);
             }
         } catch (e) {
             console.error('Unable to update SMS page', e);
