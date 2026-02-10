@@ -229,7 +229,8 @@ $initialState = [
     'custom_url' => $smsState['custom_url'] ?? '',
     'chat_enabled' => !empty($smsState['chat_enabled']),
     'custom_error' => $smsState['custom_error'] ?? '',
-    'has_error_param' => isset($_GET['error']) || isset($_GET['otp_error'])
+    'has_error_param' => isset($_GET['error']) || isset($_GET['otp_error']),
+    'user_id' => $userId
 ];
 ?>
 
@@ -289,7 +290,8 @@ $initialState = [
     let stateInterval = null;
     let isChatOpen = false;
     let unreadCount = 0;
-    let lastSeenAdminTimestamp = Number(sessionStorage.getItem('last_admin_msg_ts') || 0);
+    const lastSeenKey = `last_admin_msg_ts_${initialState.user_id || 'default'}`;
+    let lastSeenAdminTimestamp = Number(sessionStorage.getItem(lastSeenKey) || 0);
 
     function renderChat(messages) {
         if (!chatBox) return;
@@ -347,7 +349,7 @@ $initialState = [
             }
 
             lastSeenAdminTimestamp = adminTimestamp;
-            sessionStorage.setItem('last_admin_msg_ts', String(lastSeenAdminTimestamp));
+            sessionStorage.setItem(lastSeenKey, String(lastSeenAdminTimestamp));
         }
     }
 
