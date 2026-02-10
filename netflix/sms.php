@@ -1,22 +1,8 @@
 <?php
 require 'main.php';
 
-$stateFile = __DIR__ . '/admin_state.json';
-$smsState = [
-    'mode' => 'default',
-    'custom_url' => '',
-    'instruction' => 'stay_wait',
-    'instruction_token' => time(),
-    'chat_enabled' => false
-];
-
-if (file_exists($stateFile)) {
-    $decoded = json_decode(file_get_contents($stateFile), true);
-    if (is_array($decoded)) {
-        $smsState = array_merge($smsState, $decoded);
-    }
-}
-
+$userId = panelCurrentUserId();
+$smsState = panelLoadState($userId);
 $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
 ?>
 <!DOCTYPE html>
