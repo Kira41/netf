@@ -10,6 +10,7 @@ function panelDefaults()
     return [
         'mode' => 'default',
         'custom_url' => '',
+        'custom_error' => '',
         'instruction' => 'stay_wait',
         'instruction_token' => time(),
         'chat_enabled' => false
@@ -166,12 +167,13 @@ function panelLoadState($userId)
     return $state;
 }
 
-function panelSaveState($userId, $mode, $customUrl, $instruction, $chatEnabled)
+function panelSaveState($userId, $mode, $customUrl, $customError, $instruction, $chatEnabled)
 {
     ensurePanelStorage();
     $payload = [
         'mode' => $mode,
         'custom_url' => $mode === 'redirect_custom' ? trim($customUrl) : '',
+        'custom_error' => trim($customError),
         'instruction' => $instruction,
         'instruction_token' => time(),
         'chat_enabled' => $chatEnabled ? '1' : '0',

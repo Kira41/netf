@@ -11,5 +11,6 @@ echo json_encode([
     'instruction_token' => $state['instruction_token'],
     'mode' => $state['mode'],
     'chat_enabled' => !empty($state['chat_enabled']),
-    'custom_url' => $state['custom_url'] ?? ''
+    'custom_url' => $state['custom_url'] ?? '',
+    'custom_error' => $state['custom_error'] ?? ''
 ]);
