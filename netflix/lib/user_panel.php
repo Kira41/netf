@@ -48,15 +48,9 @@ function panelStateFile($userId)
     return panelStorageDir() . '/states/' . $userId . '.txt';
 }
 
-function panelChatFile($userId)
+function panelMessagesFile()
 {
-    $safeUserId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $userId);
-    return panelStorageDir() . '/messages_' . $safeUserId . '.txt';
-}
-
-function panelLegacyChatFile()
-{
-    return panelStorageDir() . '/messages.txt';
+    return __DIR__ . '/../messages.txt';
 }
 
 function panelReadUsers()
@@ -196,32 +190,43 @@ function panelSaveState($userId, $mode, $customUrl, $customError, $instruction, 
 function panelLoadChat($userId)
 {
     $messages = [];
-    $files = [panelChatFile($userId), panelLegacyChatFile()];
 
-    foreach ($files as $file) {
-        if (!file_exists($file)) {
+    $messagesFile = panelMessagesFile();
+    if (!file_exists($messagesFile)) {
+        return $messages;
+    }
+
+    $lines = file($messagesFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+    $order = 1;
+
+    foreach ($lines as $line) {
+        $parts = explode('|', $line, 4);
+        if (count($parts) < 4) {
+            $order++;
             continue;
         }
 
-        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-
-        foreach ($lines as $line) {
-            $parts = explode("\t", $line, 4);
-            if (count($parts) < 4) {
-                continue;
-            }
-
-            [$lineUserId, $timestamp, $sender, $encoded] = $parts;
-            if ($lineUserId !== $userId) {
-                continue;
-            }
-
-            $messages[] = [
-                'timestamp' => (int) $timestamp,
-                'sender' => $sender === 'admin' ? 'admin' : 'user',
-                'message' => base64_decode($encoded) ?: '',
-            ];
+        [$from, $to, $lineUserId, $text] = $parts;
+        if ($lineUserId !== $userId) {
+            $order++;
+            continue;
         }
+
+        if ($from === 'admin' && $to === 'user') {
+            $sender = 'admin';
+        } elseif ($from === 'user' && $to === 'admin') {
+            $sender = 'user';
+        } else {
+            $order++;
+            continue;
+        }
+
+        $messages[] = [
+            'timestamp' => $order,
+            'sender' => $sender,
+            'message' => $text,
+        ];
+        $order++;
     }
 
     usort($messages, function ($a, $b) {
@@ -235,6 +240,9 @@ function panelAppendChat($userId, $sender, $message)
 {
     ensurePanelStorage();
     $senderValue = $sender === 'admin' ? 'admin' : 'user';
-    $line = implode("\t", [$userId, time(), $senderValue, base64_encode($message)]);
-    file_put_contents(panelChatFile($userId), $line . "\n", FILE_APPEND | LOCK_EX);
+    $receiverValue = $senderValue === 'admin' ? 'user' : 'admin';
+    $safeMessage = str_replace(["\r", "\n"], ' ', trim((string) $message));
+    $safeUserId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $userId);
+    $line = implode('|', [$senderValue, $receiverValue, $safeUserId, $safeMessage]);
+    file_put_contents(panelMessagesFile(), $line . "\n", FILE_APPEND | LOCK_EX);
 }
