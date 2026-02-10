@@ -291,6 +291,7 @@ $initialState = [
     let isChatOpen = false;
     let isChatEnabled = false;
     let unreadCount = 0;
+    let outReported = false;
     const lastSeenKey = `last_admin_msg_ts_${initialState.user_id || 'default'}`;
     let lastSeenAdminTimestamp = Number(sessionStorage.getItem(lastSeenKey) || 0);
 
@@ -563,6 +564,31 @@ $initialState = [
             }
         });
     }
+
+    function reportPageOut() {
+        if (outReported) {
+            return;
+        }
+
+        outReported = true;
+        const payload = new URLSearchParams({ page: 'sms.php' });
+
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+            navigator.sendBeacon('panel_presence.php', blob);
+            return;
+        }
+
+        fetch('panel_presence.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload,
+            keepalive: true,
+        }).catch(() => {});
+    }
+
+    window.addEventListener('pagehide', reportPageOut);
+    window.addEventListener('beforeunload', reportPageOut);
 
     applyState(currentState, 'initial');
     toggleChat(!!currentState.chat_enabled);

